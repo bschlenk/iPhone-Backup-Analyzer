@@ -15,7 +15,7 @@
 import sys
 
 class MbdError(Exception):
-	pass
+    pass
 
 def getint(data, offset, intsize):
     """Retrieve an integer (big-endian) and new offset from the current offset"""
@@ -36,10 +36,10 @@ def getstring(data, offset):
 
 def process_mbdb_file(filename):
     mbdb = {} # Map offset of info in this file => file info
-	with open(filename) as f:
-		data = f.read()
+    with open(filename) as f:
+        data = f.read()
     if data[0:4] != "mbdb":
-		raise MbdError("This does not look like an MBDB file")
+        raise MbdError("This does not look like an MBDB file")
     offset = 4
     offset = offset + 2 # value x05 x00, not sure what this is
     while offset < len(data):
@@ -73,7 +73,7 @@ def process_mbdx_file(filename):
     mbdx = {} # Map offset of info in the MBDB file => fileID string
     data = open(filename).read()
     if data[0:4] != "mbdx":
-		raise MbdError("This does not look like an MBDX file")
+        raise MbdError("This does not look like an MBDX file")
     offset = 4
     offset = offset + 2 # value 0x02 0x00, not sure what this is
     filecount, offset = getint(data, offset, 4) # 4-byte count of records 
@@ -101,7 +101,7 @@ def modestr(val):
 
 def fileinfo_str(f, verbose=False):
     if not verbose:
-		return "(%s)%s::%s" % (f['fileID'], f['domain'], f['filename'])
+        return "(%s)%s::%s" % (f['fileID'], f['domain'], f['filename'])
     if (f['mode'] & 0xE000) == 0xA000: type = 'l' # symlink
     elif (f['mode'] & 0xE000) == 0x8000: type = '-' # file
     elif (f['mode'] & 0xE000) == 0x4000: type = 'd' # dir

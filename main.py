@@ -903,7 +903,7 @@ if __name__ == '__main__':
 	for module in os.listdir(pluginsdir):
 		if module == '__init__.py' or not module.endswith('.py') or module == 'plugins_utils.py':
 			continue
-		modname = "plugins." + os.splitext(module)[0]
+		modname = "plugins." + os.path.splitext(module)[0]
 		
 		# check whether module can be imported
 		try:
