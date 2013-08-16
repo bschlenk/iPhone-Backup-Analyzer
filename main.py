@@ -86,7 +86,7 @@ rowsnumber = 100
 
 # set SMALLMONITOR to 1 to modify main UI for small monitors
 # (such as a 7' Asus eeepc)
-smallmonitor = 0
+smallmonitor = False
 
 # global font configuration
 normalglobalfont = ('Times', 12, 'normal')
@@ -103,7 +103,7 @@ iOSVersion = 5
 # FUNCTIONS -------------------------------------------------------------------------------------------
 
 def substWith(text, subst = "-"):
-	if (len(text) == 0):
+	if (not text):
 		return subst
 	else:
 		return text
@@ -136,37 +136,40 @@ def md5(md5fileName, excludeLine="", includeLine=""):
 FILTER=''.join([(len(repr(chr(x)))==3) and chr(x) or '.' for x in range(256)])
 
 def dump(src, length=8, limit=10000):
-	N=0; result=''
+	N=0
+	result=''
 	while src:
 		s,src = src[:length],src[length:]
 		hexa = ' '.join(["%02X"%ord(x) for x in s])
 		s = s.translate(FILTER)
 		result += "%04X   %-*s   %s\n" % (N, length*3, hexa, s)
-		N+=length
+		N += length
 		if (len(result) > limit):
 			src = "";
 			result += "(analysis limit reached after %i bytes)"%limit
 	return result
 
 def hex2string(src, length=8):
-	N=0; result=''
+	N=0
+	result=''
 	while src:
 		s,src = src[:length],src[length:]
 		hexa = ' '.join(["%02X"%ord(x) for x in s])
 		s = s.translate(FILTER)
-		N+=length
+		N += length
 		result += s
 	return result	
 
 def hex2nums(src, length=8):
-    N=0; result=''
-    while src:
-       s,src = src[:length],src[length:]
-       hexa = ' '.join(["%02X"%ord(x) for x in s])
-       s = s.translate(FILTER)
-       N+=length
-       result += (hexa + " ")
-    return result
+	N = 0
+	result = []
+	while src:
+		s,src = src[:length],src[length:]
+		hexa = ' '.join(["%02X"%ord(x) for x in s])
+		s = s.translate(FILTER)
+		N += length
+		result.append(hexa)
+	return ' '.join(result)
     
 def log(text):
 	logbox.insert(END, "\n%s"%text)
@@ -186,28 +189,30 @@ def searchIndexInTree(index, parent=""):
 		#print("node under exam: %s - %s"%(node,tree.item(node)['text']))
 		id = tree.set(node, "id")
 		#print("Confronto id %s con %s"%(id, index))
-		if (id != ""):
+		if (id):
 			if (int(id) == int(index)): 
 				#print("found!")
 				return node			
 		sottonodi = searchIndexInTree(index, node)
-		if (sottonodi != None): return sottonodi	
+		if (sottonodi is not None):
+			return sottonodi	
 	return
 	
 # returns the real file name for the searched element
 def realFileName(filename="", domaintype="", path=""):
+	#TODO: omit the where clause? seems redundant
 	query = "SELECT fileid FROM indice WHERE 1=1"
-	if (filename != ""):
+	if (filename):
 		query = query + " AND file_name = \"%s\""%filename
-	if (domaintype != ""):
+	if (domaintype):
 		query = query + " AND domain_type = \"%s\""%domaintype
-	if (path != ""):
+	if (path):
 		query = query + "AND file_path = \"%s\""%path
 
 	cursor.execute(query);
 	results = cursor.fetchall()
 			
-	if (len(results) > 0):
+	if (results):
 		return results[0][0]
 	else:
 		print("ERROR: could not find file")
@@ -220,7 +225,7 @@ fileNameForViewer = ""
 def openFile(event):
 	global fileNameForViewer
 	
-	if (len(fileNameForViewer) > 0):
+	if (fileNameForViewer):
 	
 		answer = tkMessageBox.askyesno("Caution", "Are you sure you want to open the selected file with an external viewer? This could modify the evidence!", icon="warning", default="no")
 
@@ -259,16 +264,16 @@ def buttonBoxPress(event):
 		global pattern
 		global searchindex
 		
-		if (pattern != searchbox.get(1.0, END).strip() or searchindex == ""):
+		if (pattern != searchbox.get(1.0, END).strip() or not searchindex):
 			searchindex = "1.0";
 		
 		pattern = searchbox.get("1.0", END).strip()
-		if (len(str(pattern)) == 0): return
+		if (not str(pattern)): return
 		
 		textarea.mark_set("searchLimit", textarea.index("end"))
 		
-		searchindex = textarea.search("%s"%pattern, "%s+1c"%(searchindex) , "searchLimit", regexp = True, nocase = True)
-		if (searchindex == ""): return
+		searchindex = textarea.search("%s"%pattern, "%s+1c"%(searchindex) , "searchLimit", regexp=True, nocase=True)
+		if (not searchindex): return
 		
 		textarea.tag_delete("yellow")
 		textarea.tag_configure("yellow",background="#FFFF00")
@@ -295,16 +300,18 @@ def writeTXT():
 
 def convertTimeStamp(event):
 	timestamp = timebox.get("1.0", END)
-	if (timestamp.strip() == ""): return
+	if (not timestamp.strip()):
+		return
 	
 	try:
 		timestamp = int(timestamp)
+	# TODO: except specific exception
 	except:
 		timebox.config(background="IndianRed1")
 		return
 	
-	timestamp = timestamp + 978307200 #JAN 1 1970
-	convtimestamp = datetime.fromtimestamp(int(timestamp))
+	timestamp += 978307200 #JAN 1 1970
+	convtimestamp = datetime.fromtimestamp(timestamp)
 	timebox.delete("1.0", END)
 	timebox.insert("1.0", convtimestamp)
 
@@ -327,11 +334,12 @@ if __name__ == '__main__':
 	# usage
 	def usage():
 		banner()
-		print("")
-		print(" -h              : this help")
-		print(" -d <dir>        : backup dir")
-		print(" -s              : adapt main UI for small monitors (such as 7')")
-		print(" -4              : iOS 4 backup data (default is iOS 5)")
+		print('''
+ -h              : this help
+ -d <dir>        : backup dir
+ -s              : adapt main UI for small monitors (such as 7')
+ -4              : iOS 4 backup data (default is iOS 5)
+''')
 
 	# input parameters
 	try:
@@ -352,14 +360,14 @@ if __name__ == '__main__':
 				backup_path = backup_path + "/"
 		
 		if o in ("-s"):
-			smallmonitor = 1
-			globalfont=smallglobalfont
+			smallmonitor = True
+			globalfont = smallglobalfont
 		
 		if o in ("-4"):
 			iOSVersion = 4
 
 	# show window to select directory
-	if (len(backup_path) == 0):
+	if (not backup_path):
 		backup_path = tkFileDialog.askdirectory(mustexist=True, title="Select backup path")
 
 	# chech existence of backup dir
@@ -391,36 +399,36 @@ if __name__ == '__main__':
 	# database = sqlite3.connect('MyDatabase.db') # Create a database file
 	database = sqlite3.connect(':memory:') # Create a database file in memory
 	cursor = database.cursor() # Create a cursor
-	cursor.execute(
-		"CREATE TABLE indice (" + 
-		"id INTEGER PRIMARY KEY AUTOINCREMENT," +
-		"type VARCHAR(1)," +
-		"permissions VARCHAR(9)," +
-		"userid VARCHAR(8)," +
-		"groupid VARCHAR(8)," +
-		"filelen INT," +
-		"mtime INT," +
-		"atime INT," +
-		"ctime INT," +
-		"fileid VARCHAR(50)," +
-		"domain_type VARCHAR(100)," +
-		"domain VARCHAR(100)," +
-		"file_path VARCHAR(100)," +
-		"file_name VARCHAR(100)," + 
-		"link_target VARCHAR(100)," + 
-		"datahash VARCHAR(100)," + 
-		"flag VARCHAR(100)"
-		");"
-	)
+	cursor.execute('''
+		CREATE TABLE indice (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			type VARCHAR(1),
+			permissions VARCHAR(9),
+			userid VARCHAR(8),
+			groupid VARCHAR(8),
+			filelen INT,
+			mtime INT,
+			atime INT,
+			ctime INT,
+			fileid VARCHAR(50),
+			domain_type VARCHAR(100),
+			domain VARCHAR(100),
+			file_path VARCHAR(100),
+			file_name VARCHAR(100),
+			link_target VARCHAR(100),
+			datahash VARCHAR(100),
+			flag VARCHAR(100)
+		)
+	''')
 	
-	cursor.execute(
-		"CREATE TABLE properties (" + 
-		"id INTEGER PRIMARY KEY AUTOINCREMENT," +
-		"file_id INTEGER," +
-		"property_name VARCHAR(100)," +
-		"property_val VARCHAR(100)" +
-		");"
-	)
+	cursor.execute('''
+		CREATE TABLE properties (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			file_id INTEGER,
+			property_name VARCHAR(100),
+			property_val VARCHAR(100)
+		)
+	''')
 		
 	# count items parsed from Manifest file
 	items = 0;
@@ -458,6 +466,7 @@ if __name__ == '__main__':
 			filename = "";
 
 		# Insert record in database
+		# TODO: make this a parameterized insert
 		query = "INSERT INTO indice(type, permissions, userid, groupid, filelen, mtime, atime, ctime, fileid, domain_type, domain, file_path, file_name, link_target, datahash, flag) VALUES(";
 		query += "'%s'," 	% obj_type
 		query += "'%s'," 	% mbdbdecoding.modestr(fileinfo['mode']&0x0FFF)
@@ -486,18 +495,22 @@ if __name__ == '__main__':
 		# check if file has properties to store in the properties table
 		if (fileinfo['numprops'] > 0):
 	
-			query = "SELECT id FROM indice WHERE "
-			query += "domain = '%s' " % domain.replace("'", "''")
-			query += "AND fileid = '%s' " % fileinfo['fileID']
-			query += "LIMIT 1"
+			#TODO: make this a parameterized query
+			query = '''
+				SELECT id FROM indice WHERE
+				domain = '%s'
+				AND fileid = '%s'
+				LIMIT 1
+			''' % (domain.replace("'", "''"), fileinfo['fileID'])
 			 
 			cursor.execute(query);
-			id = cursor.fetchall()
+			id = cursor.fetchone()
 			
-			if (len(id) > 0):
-				index = id[0][0]
+			if (id):
+				index = id[0]
 				properties = fileinfo['properties']
-				for property in properties.keys():
+				#TODO: make this a parameterized query
+				for property in properties:
 					query = "INSERT INTO properties(file_id, property_name, property_val) VALUES (";
 					query += "'%i'," % index
 					query += "'%s'," % property
@@ -545,7 +558,7 @@ if __name__ == '__main__':
 	tree.heading("#0", text="Element description", anchor='w')
 	tree.heading("size", text="File Size", anchor='w')
 	
-	if (smallmonitor == 1):
+	if (smallmonitor):
 		tree.column("#0", width=200)
 		tree.column("size", width=30)
 	else:
@@ -644,7 +657,7 @@ if __name__ == '__main__':
 	tablestree = ttk.Treeview(buttonbox, columns=("filename", "tablename"), displaycolumns=())			
 	tablestree.heading("#0", text="Tables")
 	
-	if (smallmonitor == 1):
+	if (smallmonitor):
 		tablestree.column("#0", width=150)
 	else:
 		tablestree.column("#0", width=200)
@@ -752,13 +765,13 @@ if __name__ == '__main__':
 	
 	def recordplusbutton(event):
 		global rowsoffset
-		rowsoffset = rowsoffset+1
+		rowsoffset += 1
 		recordlabelupdate()
 		TablesTreeClick(None)
 
 	def recordlessbutton(event):
 		global rowsoffset
-		rowsoffset = rowsoffset-1
+		rowsoffset -= 1
 		if (rowsoffset < 0): rowsoffset = 0
 		recordlabelupdate()
 		TablesTreeClick(None)
@@ -794,45 +807,42 @@ if __name__ == '__main__':
 	
 	def aboutBox():
 		aboutTitle = "iPBA iPhone Backup Analyzer"
-		aboutText = "(c) Mario Piccinelli 2011 <mario.piccinelli@gmail.com>"
-		aboutText += "\n Released under MIT Licence"
-		aboutText += "\n Version: " + version
+		aboutText = '\n'.join([
+			"(c) Mario Piccinelli 2011 <mario.piccinelli@gmail.com>",
+			" Released under MIT Licence",
+			" Version: %s" % version,
+		])
 		tkMessageBox.showinfo(aboutTitle, aboutText)
 	
 	def quitMenu():
 		exit(0)
 			
 	def placesMenu(filename):
-		if (filename == ""): return
+		if (not filename): return
 
 		query = "SELECT id FROM indice WHERE file_name = \"%s\""%filename
 		cursor.execute(query)
-		result = cursor.fetchall()
+		result = cursor.fetchone()
 		
-		if (len(result) == 0):
+		if (not result):
 			log("File %s not found."%filename)
 			return
 		
-		id = result[0][0]
+		id = result[0]
 		nodeFound = searchIndexInTree(id)
 		
-		if (nodeFound == None):
+		if (nodeFound is None):
 			log("Node not found in tree while searching for file %s (id %s)."%(filename, id))
 			return
 			
 		tree.see(nodeFound)
 		tree.selection_set(nodeFound)
-		OnClick("") #triggers refresh of main text area
+		OnClick() #triggers refresh of main text area
 	
 	def base64dec():	
 		enctext = textarea.get(SEL_FIRST, SEL_LAST)
 		
-		clearenctext = ""
-		for char in enctext:
-			if char in string.whitespace:
-				continue
-			else:
-				clearenctext = clearenctext + char
+		clearenctext = ''.join(ch for ch in enctext if ch not in string.whitespace)
 		
 		try:
 			dectext = base64.b64decode(clearenctext)		
@@ -891,9 +901,9 @@ if __name__ == '__main__':
 	print("Loading plugins from dir: %s"%pluginsdir)
 	
 	for module in os.listdir(pluginsdir):
-		if module == '__init__.py' or module[-3:] != '.py' or module == 'plugins_utils.py':
+		if module == '__init__.py' or not module.endswith('.py') or module == 'plugins_utils.py':
 			continue
-		modname = "plugins." + module[:-3]
+		modname = "plugins." + os.splitext(module)[0]
 		
 		# check whether module can be imported
 		try:
@@ -919,6 +929,7 @@ if __name__ == '__main__':
 			#print("Error: %s"%sys.exc_info()[0])
 			moddescr = modname
 
+		#TODO: this seems like black magic
 		action = "lambda: getattr(sys.modules[\"" + modname + "\"], 'main')(cursor, backup_path)"
 		function = eval(action)
 		
@@ -955,6 +966,7 @@ if __name__ == '__main__':
 	
 	print("\nBuilding UI..")
 	
+	#TODO: make all these queries parameterized
 	for domain_type_u in domain_types:
 		domain_type = str(domain_type_u[0])
 		domain_type_index = tree.insert('', 'end', text=domain_type, tag='base')
@@ -1003,11 +1015,11 @@ if __name__ == '__main__':
 	
 		global rowsoffset, rowsnumber
 		
-		if (event != None): 
+		if (event is not None): 
 			rowsoffset = 0
 			recordlabelupdate()
 
-		if (len(tablestree.selection()) == 0): return;
+		if (not tablestree.selection()): return;
 		
 		seltable = tablestree.selection()[0]
 		seltable_dbname = tablestree.set(seltable, "filename")
@@ -1032,12 +1044,12 @@ if __name__ == '__main__':
 				# append table fields to main textares
 				seltable_fieldslist = []
 				maintext("\n\nTable Fields:")
-				for i in range(len(seltable_fields)):
-					seltable_field = seltable_fields[i]
+				for seltable_field in seltable_fields:
 					maintext("\n- ")
 					maintext("%i \"%s\" (%s)" %(seltable_field[0], seltable_field[1], seltable_field[2]))
 					seltable_fieldslist.append(str(seltable_field[1]))
 
+				#TODO: make these parameterized
 				# count fields from selected table
 				seltablecur.execute("SELECT COUNT(*) FROM %s" % seltable_tablename)
 				seltable_rownumber = seltablecur.fetchall();
@@ -1048,7 +1060,8 @@ if __name__ == '__main__':
 							
 				# read all fields from selected table
 				seltablecur.execute("SELECT * FROM %s LIMIT %i OFFSET %i" % (seltable_tablename, limit, offset))
-				seltable_cont = seltablecur.fetchall();
+				#TODO: remove these comments if things work here
+				#seltable_cont = seltablecur.fetchall();
 				
 				try:
 				
@@ -1057,17 +1070,18 @@ if __name__ == '__main__':
 					
 					del photoImages[:]
 					
-					for seltable_record in seltable_cont:
+					#for seltable_record in seltable_cont:
+					for seltable_record in seltablecur:
 
 						maintext("\n- " + str(seltable_record))
 							
-						for i in range(len(seltable_record)):	
+						for i, col in enumerate(seltable_record):	
 						
 							#import unicodedata
 							try:
-								value = str(seltable_record[i])
+								value = str(col)
 							except:
-								value = seltable_record[i].encode("utf8", "replace") + " (decoded unicode)"
+								value = col.encode("utf8", "replace") + " (decoded unicode)"
 
 							#maybe an image?
 							if (seltable_fieldslist[i] == "data"):
@@ -1106,12 +1120,12 @@ if __name__ == '__main__':
 	
 	old_label_image = None
 	
-	def OnClick(event):
+	def OnClick(event=None):
 	
 		global fileNameForViewer
 		global old_label_image
 	
-		if (len(tree.selection()) == 0): return;
+		if (not tree.selection()): return;
 		
 		# remove everything from tables tree
 		for item in tablestree.get_children():
@@ -1127,7 +1141,7 @@ if __name__ == '__main__':
 		item_id = tree.set(item, "id")
 		
 		#skip "folders"
-		if (item_type == ""): return;
+		if (not item_type): return;
 		
 		#clears textarea
 		clearmaintext()
@@ -1145,19 +1159,17 @@ if __name__ == '__main__':
 				
 				#print file content (if text file) otherwise only first 50 chars
 				if (filemagic == "ASCII text" or filemagic.partition("/")[0] == "text"):
-					fh = open(item_realpath, 'rb')
-					maintext("\n\nASCII content:\n\n")
-					while 1:
+					with open(item_realpath, 'rb') as fh:
+						maintext("\n\nASCII content:\n\n")
 						line = fh.readline()
-						if not line: break;
-						maintext(line)
-					fh.close()	
+						while line:
+							line = fh.readline()
+							maintext(line)
 				else:
-					fh = open(item_realpath, 'rb')
-					text = fh.read(30)
-					maintext("\n\nFirst 30 chars from file (string): ")
-					maintext("\n" + hex2string(text))
-					fh.close()
+					with open(item_realpath, 'rb') as fh:
+						text = fh.read(30)
+						maintext("\n\nFirst 30 chars from file (string): ")
+						maintext("\n" + hex2string(text))
 			
 				#if binary plist:
 				if (filemagic.partition("/")[2] == "binary_plist"):					
@@ -1171,11 +1183,12 @@ if __name__ == '__main__':
 
 		maintext("Selected: " + item_text + " (id " + str(item_id) + ")")
 		
+		#TODO: parameterize this
 		query = "SELECT * FROM indice WHERE id = %s" % item_id
 		cursor.execute(query)
 		data = cursor.fetchone()
 		
-		if (len(data) == 0): return
+		if (not data): return
 		
 		item_permissions = str(data[2])
 		item_userid = str(data[3])
@@ -1201,10 +1214,10 @@ if __name__ == '__main__':
 		maintext("\nFlag: " + item_flag)
 
 		# file properties (from properties table, which is data from mbdb file)
+		#TODO: parameterize this
 		query = "SELECT property_name, property_val FROM properties WHERE file_id = %s" % item_id
 		cursor.execute(query)
-		data = cursor.fetchall()
-		if (len(data) > 0):
+		for data in cursor:
 			maintext("\n\nElement properties (from mdbd file):")
 			for element in data:
 				maintext("\n%s: %s" %(element[0], element[1]))
@@ -1234,7 +1247,7 @@ if __name__ == '__main__':
 		log("Opening file %s (%s)"%(item_realpath, item_text))
 		
 		# check for existence 
-		if (os.path.exists(item_realpath) == 0):
+		if (not os.path.exists(item_realpath)):
 			maintext("unable to analyze file")
 			return			
 		
@@ -1247,21 +1260,19 @@ if __name__ == '__main__':
 		maintext(md5(item_realpath))
 		
 		#print first 30 bytes from file
-		fh = open(item_realpath, 'rb')
-		first30bytes = fh.read(30)
-		maintext("\n\nFirst 30 hex bytes from file: ")
-		maintext("\n" + hex2nums(first30bytes))#binascii.b2a_uu(text))
-		fh.close()
+		with open(item_realpath, 'rb') as fh:
+			first30bytes = fh.read(30)
+			maintext("\n\nFirst 30 hex bytes from file: ")
+			maintext("\n" + hex2nums(first30bytes))#binascii.b2a_uu(text))
 			
 		#print file content (if ASCII file) otherwise only first 30 bytes
 		if (filemagic == "ASCII text" or filemagic.partition("/")[0] == "text"):
-			fh = open(item_realpath, 'rb')
-			maintext("\n\nASCII content:\n\n")
-			while 1:
+			with open(item_realpath, 'rb') as fh:
+				maintext("\n\nASCII content:\n\n")
 				line = fh.readline()
-				if not line: break;
-				maintext(line)
-			fh.close()	
+				while line:
+					line = fh.readline()
+					maintext(line)
 		else:
 			maintext("\n\nFirst 30 chars from file (string): ")
 			maintext("\n" + hex2string(first30bytes))					
@@ -1319,7 +1330,7 @@ if __name__ == '__main__':
 		if (filemagic == "image/jpeg"):
 			exifs = im._getexif()
 			
-			if (exifs != None):
+			if (exifs is not None):
 				maintext("\nJPG EXIF tags available.")
 				exifcolumn_label.delete(1.0, END)
 				exifcolumn_label.insert(END, "JPG EXIF tags for file \"%s\":"%item_text)
@@ -1357,6 +1368,7 @@ if __name__ == '__main__':
 					maintext("\n- " + table_name);
 					
 					try:
+						#TODO: make this parameterized
 						tempcur.execute("SELECT count(*) FROM %s" % table_name);
 						elem_count = tempcur.fetchone()
 						maintext(" (%i elements) " % int(elem_count[0]))
@@ -1379,12 +1391,11 @@ if __name__ == '__main__':
 			limit = 10000
 			maintext("\n\nDumping hex data (limit %i bytes):\n"%limit)
 			content = ""
-			fh = open(item_realpath, 'rb')
-			while 1:
+			with open(item_realpath, 'rb') as fh:
 				line = fh.readline()
-				if not line: break;
-				content = content + line;
-			fh.close()
+				while line:
+					line = fh.readline()
+					content += line;
 			
 			maintext(dump(content, 16, limit))
 
@@ -1405,7 +1416,7 @@ if __name__ == '__main__':
 	# Populating Device Info Box
 	
 	deviceinfo = plistutils.deviceInfo(os.path.join(backup_path, "Info.plist"))
-	for element in deviceinfo.keys():
+	for element in deviceinfo:
 		infobox.insert(INSERT, "%s: %s\n"%(element, deviceinfo[element]))
 
 

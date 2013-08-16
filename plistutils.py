@@ -28,9 +28,9 @@ def readDict(dictNode):
 	for node in dictNode.childNodes:
 		if (node.nodeType == node.TEXT_NODE): continue
 		
-		if (nodeKey == None):
+		if (nodeKey is None):
 			nodeKeyElement = node.firstChild
-			if (nodeKeyElement == None):
+			if (nodeKeyElement is None):
 				nodeKey = "-"
 			else:
 				nodeKey = node.firstChild.toxml()
@@ -67,6 +67,7 @@ def readPlist(filename):
 	tempfile = os.path.dirname(sys.argv[0]) + "/out.plist" #default name from perl script plutil.pl
 	command = "perl \"" + os.path.dirname(sys.argv[0]) + "/IPBAplutil.pl\" \"%s\" "%filename
 	
+	#TODO: should this be called twice?
 	os.system(command)
 
 	try:
@@ -79,12 +80,12 @@ def readPlist(filename):
 		print("Return value not clear. Unable to decode data.")
 		return ""
 
-	fh = open(tempfile, 'rb')
-	while 1:
+	with open(tempfile, 'rb') as fh:
 		line = fh.readline()
-		if not line: break;
-		retstring = retstring + line
-	fh.close()	
+		retstring = ""
+		while line:
+			retstring += line
+			line = fh.readline()
 				
 	os.remove(tempfile)
 	
@@ -155,7 +156,7 @@ def deviceInfo(filename):
 	
 	properties = {}
 	
-	for key in data.keys():
+	for key in data:
 		if (key in proplist):
 			properties[key] = data[key].firstChild.toxml()
 
