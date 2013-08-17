@@ -293,7 +293,8 @@ def writeTXT():
 		tkMessageBox.showwarning("Done", "Text saved\n")
 		outfile.close()
 	else:
-		tkMessageBox.showwarning("Error", "Text NOT saved\n")
+		log("Write Txt operation cancelled")
+		#tkMessageBox.showwarning("Error", "Text NOT saved\n")
 
 
 # Called when the "convert from unix timestamp" button is clicked  ------------------------------------
@@ -840,15 +841,24 @@ if __name__ == '__main__':
 		OnClick() #triggers refresh of main text area
 	
 	def base64dec():	
-		enctext = textarea.get(SEL_FIRST, SEL_LAST)
+		try:
+			enctext = textarea.get(SEL_FIRST, SEL_LAST)
+		except TclError:
+			tkMessageBox.showwarning("Decode Base64", "Please select some text in the main window")
+			return
 		
 		clearenctext = ''.join(ch for ch in enctext if ch not in string.whitespace)
+		padding = 4 - len(clearenctext) % 4
+		if padding:
+			clearenctext += "=" * padding
+		log(clearenctext)
 		
 		try:
 			dectext = base64.b64decode(clearenctext)		
 			decstring = ''.join(ch for ch in dectext if ch in string.printable)
 			tkMessageBox.showinfo("Decoded Base64 data", decstring)
-		except:
+		except TypeError as e:
+			log(str(e))
 			tkMessageBox.showwarning("Error", "Unable to decode selected data.\nMaybe you didn't select the whole data, or the selected data is not encoded in Base64?")
 
 	# Menu Bar
@@ -887,7 +897,7 @@ if __name__ == '__main__':
 	)
 
 	placesmenu.add_separator()
-	placesmenu.add_command(label="Write txt", command=writeTXT)
+	placesmenu.add_command(label="Write Txt", command=writeTXT)
 	placesmenu.add_command(label="Decode Base64", command=base64dec)
 		
 	menubar.add_cascade(label="Places", menu=placesmenu)
