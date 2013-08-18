@@ -1006,8 +1006,13 @@ if __name__ == '__main__':
 		domain_type_index = tree.insert('', 'end', text=domain_type, tag='base')
 		print("Listing elements for domain family: %s" %domain_type)
 		
-		query = "SELECT DISTINCT(domain) FROM indice WHERE domain_type = \"%s\" ORDER BY domain" % domain_type
-		cursor.execute(query);
+		query = '''
+			SELECT DISTINCT(domain)
+			FROM indice
+			WHERE domain_type = ?
+			ORDER BY domain
+		'''
+		cursor.execute(query, (domain_type,))
 		domain_names = cursor.fetchall()
 		
 		for domain_name_u in domain_names:
@@ -1015,26 +1020,35 @@ if __name__ == '__main__':
 			
 			domain_name_index = tree.insert(domain_type_index, 'end', text=substWith(domain_name, "<no domain>"), tag='base')
 			
-			query = "SELECT DISTINCT(file_path) FROM indice WHERE domain_type = \"%s\" AND domain = \"%s\" ORDER BY file_path" %(domain_type, domain_name)
-			cursor.execute(query)
+			query = '''
+				SELECT DISTINCT(file_path)
+				FROM indice
+				WHERE domain_type = ? AND domain = ?
+				ORDER BY file_path
+			'''
+			cursor.execute(query, (domain_type, domain_name))
 			paths = cursor.fetchall()
 			
 			for path_u in paths:
 				path = str(path_u[0])
 				path_index = tree.insert(domain_name_index, 'end', text=substWith(path, "/"), tag='base')
 				
-				query = "SELECT file_name, filelen, id, type FROM indice WHERE domain_type = \"%s\" AND domain = \"%s\" AND file_path = \"%s\" ORDER BY file_name" %(domain_type, domain_name, path)
-				cursor.execute(query)
+				query = '''
+					SELECT file_name, filelen, id, type
+					FROM indice 
+					WHERE domain_type = ? AND domain = ? AND file_path = ? ORDER BY file_name
+				'''
+				cursor.execute(query, (domain_type, domain_name, path))
 				files = cursor.fetchall()
 				
-				for file in files:
-					file_name = str(file[0].encode("utf-8"))
-					if (file[1]) < 1024:
-						file_dim = str(file[1]) + " b"
+				for f in files:
+					file_name = str(f[0].encode("utf-8"))
+					if (f[1]) < 1024:
+						file_dim = str(f[1]) + " b"
 					else:
-						file_dim = str(file[1] / 1024) + " kb"
-					file_id = int(file[2])
-					file_type = str(file[3])
+						file_dim = str(f[1] / 1024) + " kb"
+					file_id = int(f[2])
+					file_type = str(f[3])
 					tree.insert(path_index, 'end', text=substWith(file_name, "."), values=(file_type, file_dim, file_id), tag='base')
 			
 	print("Construction complete.\n")
@@ -1438,6 +1452,9 @@ if __name__ == '__main__':
 	# Main ---------------------------------------------------------------------------------------------------
 
 	tree.bind("<ButtonRelease-1>", OnClick)
+	tree.bind("<KeyRelease-Up>", OnClick)
+	tree.bind("<KeyRelease-Down>", OnClick)
+
 	tablestree.bind("<ButtonRelease-1>", TablesTreeClick)
 	timebox.bind("<Key>", clearTimeBox)
 	
