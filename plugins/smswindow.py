@@ -42,7 +42,8 @@ def autoscroll(sbar, first, last):
 def OnClick(event):
 	global filename
 	global groupstree, textarea
-	if (len(groupstree.selection()) == 0): return;
+	if not len(groupstree.selection()):
+		return;
 	msg_group = int(groupstree.item(groupstree.selection(), "text"))
 	msg_address = groupstree.set(groupstree.selection(), "address")
 	
@@ -162,7 +163,7 @@ def main(cursor, backup_path):
 	
 	filename = os.path.join(backup_path, plugins_utils.realFileName(cursor, filename="sms.db", domaintype="HomeDomain"))
 	
-	if (not os.path.isfile(filename)):
+	if not os.path.isfile(filename):
 		print("Invalid file name for SMS database")
 		return	
 	

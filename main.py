@@ -326,6 +326,7 @@ if __name__ == '__main__':
 	# we have to create immediately the root window, to be able to use tkFileDialog
 	# for now we withdraw it.. we will show it again at the end of the UI building
 	root = Tkinter.Tk()
+	root.title('iPhone Backup analyzer')
 	root.withdraw()
 
 	def banner():
@@ -449,8 +450,11 @@ if __name__ == '__main__':
 		# iOS 5 (no MBDX file, use SHA1 of complete file name)
 		elif (iOSVersion == 5):
 			fileID = hashlib.sha1()
-			fileID.update("%s-%s"%(fileinfo['domain'], fileinfo['filename']) )
+			fileID.update('%s-%s' % (fileinfo['domain'], fileinfo['filename']))
 			fileinfo['fileID'] = fileID.hexdigest()	
+
+		else:
+			print >> sys.stderr, 'invalid iOSVersion [%d]' % (iOSVersion,)
 	
 		# decoding element type (symlink, file, directory)
 		if (fileinfo['mode'] & 0xE000) == 0xA000: obj_type = 'l' # symlink
@@ -464,11 +468,29 @@ if __name__ == '__main__':
 		[filepath, sep, filename] = fileinfo['filename'].rpartition('/')
 		if (type == 'd'):
 			filepath = fileinfo['filename']
-			filename = "";
+			filename = '';
 
 		# Insert record in database
-		# TODO: make this a parameterized insert
-		query = "INSERT INTO indice(type, permissions, userid, groupid, filelen, mtime, atime, ctime, fileid, domain_type, domain, file_path, file_name, link_target, datahash, flag) VALUES(";
+		# TODO: make this a parameterized insert. possibly wrap database into a class
+		query = '''
+			INSERT INTO indice(
+				type, 
+				permissions, 
+				userid, 
+				groupid, 
+				filelen, 
+				mtime, 
+				atime, 
+				ctime, 
+				fileid, 
+				domain_type, 
+				domain, 
+				file_path, 
+				file_name, 
+				link_target, 
+				datahash, 
+				flag
+			) VALUES( '''
 		query += "'%s'," 	% obj_type
 		query += "'%s'," 	% mbdbdecoding.modestr(fileinfo['mode']&0x0FFF)
 		query += "'%08x'," 	% fileinfo['userid']
@@ -554,7 +576,8 @@ if __name__ == '__main__':
 	w = Label(leftcol, text="Backup content:", font=globalfont, bg='lightblue')
 	w.grid(column=0, row=2, sticky='ew')
 	tree = ttk.Treeview(leftcol, columns=("type", "size", "id"),
-	    displaycolumns=("size"), yscrollcommand=lambda f, l: autoscroll(vsb, f, l),
+	    displaycolumns=("size"), selectmode='browse',
+		yscrollcommand=lambda f, l: autoscroll(vsb, f, l),
 	    xscrollcommand=lambda f, l:autoscroll(hsb, f, l))
 	tree.heading("#0", text="Element description", anchor='w')
 	tree.heading("size", text="File Size", anchor='w')
@@ -789,20 +812,20 @@ if __name__ == '__main__':
 	fieldless.grid(column=0, row=0, sticky="nsew")
 
 	fieldlabeltext = StringVar()
-	fieldlabel = Label(tableblock, textvariable = fieldlabeltext, relief = RIDGE, font=globalfont)
-	fieldlabel.grid(column=1, row=0, sticky="nsew", padx=3, pady=3)
+	fieldlabel = Label(tableblock, textvariable=fieldlabeltext, relief=RIDGE, font=globalfont)
+	fieldlabel.grid(column=1, row=0, sticky='nsew', padx=3, pady=3)
 	recordlabelupdate()
 
 	fieldplus = Button(
 		tableblock, 
-		text=">", 
+		text='>', 
 		width=10, 
 		default=ACTIVE, 
 		font=globalfont,
 		highlightbackground='#4d66fa'
 	)
-	fieldplus.bind("<Button-1>", recordplusbutton)
-	fieldplus.grid(column=2, row=0, sticky="nsew")
+	fieldplus.bind('<Button-1>', recordplusbutton)
+	fieldplus.grid(column=2, row=0, sticky='nsew')
 
 	# menu --------------------------------------------------------------------------------------------------
 	
@@ -819,21 +842,22 @@ if __name__ == '__main__':
 		exit(0)
 			
 	def placesMenu(filename):
-		if (not filename): return
+		if not filename:
+			return
 
-		query = "SELECT id FROM indice WHERE file_name = \"%s\""%filename
-		cursor.execute(query)
+		query = 'SELECT id FROM indice WHERE file_name = ?'
+		cursor.execute(query, (filename,))
 		result = cursor.fetchone()
 		
-		if (not result):
-			log("File %s not found."%filename)
+		if not result:
+			log('File %s not found.' % filename)
 			return
 		
 		id = result[0]
 		nodeFound = searchIndexInTree(id)
 		
-		if (nodeFound is None):
-			log("Node not found in tree while searching for file %s (id %s)."%(filename, id))
+		if nodeFound is None:
+			log('Node not found in tree while searching for file %s (id %s).' % (filename, id))
 			return
 			
 		tree.see(nodeFound)
@@ -1135,7 +1159,8 @@ if __name__ == '__main__':
 		global fileNameForViewer
 		global old_label_image
 	
-		if (not tree.selection()): return;
+		if not tree.selection():
+			return;
 		
 		# remove everything from tables tree
 		for item in tablestree.get_children():
@@ -1151,7 +1176,8 @@ if __name__ == '__main__':
 		item_id = tree.set(item, "id")
 		
 		#skip "folders"
-		if (not item_type): return;
+		if not item_type:
+			return
 		
 		#clears textarea
 		clearmaintext()

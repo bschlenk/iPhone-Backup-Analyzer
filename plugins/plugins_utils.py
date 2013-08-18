@@ -15,19 +15,26 @@ import sqlite3
 # MAIN FUNCTION --------------------------------------------------------------------------------
 
 def realFileName(cursor, filename="", domaintype="", path=""):
-	query = "SELECT fileid FROM indice WHERE 1=1"
-	if (filename != ""):
+	query = "SELECT fileid FROM indice" # WHERE 1=1"
+
+	'''if (filename != ""):
 		query = query + " AND file_name = \"%s\""%filename
 	if (domaintype != ""):
 		query = query + " AND domain_type = \"%s\""%domaintype
 	if (path != ""):
 		query = query + "AND file_path = \"%s\""%path
+	'''
+
+	fields = ['file_name', 'domain_type', 'file_path']
+	where_clause = ' AND '.join('%s = "%s"' % (k, v) for k, v in zip(fields, (filename, domaintype, path)) if v)
+	if where_clause:
+		query = ' WHERE '.join(query, where_clause)
 
 	cursor.execute(query);
-	results = cursor.fetchall()
+	result = cursor.fetchone()
 			
-	if (len(results) > 0):
-		return results[0][0]
+	if result:
+		return result[0]
 	else:
 		print("ERROR: could not find file")
 		return ""	
@@ -45,11 +52,12 @@ def readDict(dictNode):
 	
 	nodeKey = None
 	for node in dictNode.childNodes:
-		if (node.nodeType == node.TEXT_NODE): continue
+		if (node.nodeType == node.TEXT_NODE):
+			continue
 		
-		if (nodeKey == None):
+		if (nodeKey is None):
 			nodeKeyElement = node.firstChild
-			if (nodeKeyElement == None):
+			if (nodeKeyElement is None):
 				nodeKey = "-"
 			else:
 				nodeKey = node.firstChild.toxml()
