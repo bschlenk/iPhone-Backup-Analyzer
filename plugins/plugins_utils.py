@@ -28,7 +28,7 @@ def realFileName(cursor, filename="", domaintype="", path=""):
 	fields = ['file_name', 'domain_type', 'file_path']
 	where_clause = ' AND '.join('%s = "%s"' % (k, v) for k, v in zip(fields, (filename, domaintype, path)) if v)
 	if where_clause:
-		query = ' WHERE '.join(query, where_clause)
+		query = ' WHERE '.join([query, where_clause])
 
 	cursor.execute(query);
 	result = cursor.fetchone()

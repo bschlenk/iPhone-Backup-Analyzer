@@ -103,7 +103,7 @@ iOSVersion = 5
 # FUNCTIONS -------------------------------------------------------------------------------------------
 
 def substWith(text, subst = "-"):
-	if (not text):
+	if not text:
 		return subst
 	else:
 		return text
@@ -199,15 +199,13 @@ def searchIndexInTree(index, parent=""):
 	return
 	
 # returns the real file name for the searched element
-def realFileName(filename="", domaintype="", path=""):
-	#TODO: omit the where clause? seems redundant
-	query = "SELECT fileid FROM indice WHERE 1=1"
-	if (filename):
-		query = query + " AND file_name = \"%s\""%filename
-	if (domaintype):
-		query = query + " AND domain_type = \"%s\""%domaintype
-	if (path):
-		query = query + "AND file_path = \"%s\""%path
+def realFileName(filename='', domaintype='', path=''):
+	query = "SELECT fileid FROM indice"
+
+	fields = ['file_name', 'domain_type', 'file_path']
+	where_clause = ' AND '.join('%s = %s' % (k, v) for k, v in zip(fields, (filename, domaintype, path)) if v)
+	if where_clause:
+		query = ' WHERE '.join([query, where_clause])
 
 	cursor.execute(query);
 	results = cursor.fetchall()
@@ -215,8 +213,8 @@ def realFileName(filename="", domaintype="", path=""):
 	if (results):
 		return results[0][0]
 	else:
-		print("ERROR: could not find file")
-		return ""	
+		print('ERROR: could not find file')
+		return ''	
 	
 # Called when a button is clicked in the buttonbox (upper right) -----------------------------------------
 
@@ -932,18 +930,23 @@ if __name__ == '__main__':
 	print("\n**** Loading plugins...")
 	
 	pluginsdir = os.path.join(os.path.dirname(__file__), "plugins")
-	print("Loading plugins from dir: %s"%pluginsdir)
+	print("Loading plugins from dir: %s" % pluginsdir)
 	
+	def getFunc(m_name):
+		def func():
+			getattr(sys.modules[m_name], 'main')(cursor, backup_path)
+		return func
+
 	for module in os.listdir(pluginsdir):
 		if module == '__init__.py' or not module.endswith('.py') or module == 'plugins_utils.py':
 			continue
-		modname = "plugins." + os.path.splitext(module)[0]
+		modname = '.'.join(['plugins', os.path.splitext(module)[0]])
 		
 		# check whether module can be imported
 		try:
 			__import__(modname)
 		except:
-			print("Error while trying to load plugin file: %s"%modname)
+			print("Error while trying to load plugin file: %s" % modname)
 			print sys.exc_info()[0]
 			continue
 		
@@ -951,25 +954,20 @@ if __name__ == '__main__':
 		try:
 			getattr(sys.modules[modname], "main")
 		except:
-			print("Error: main() method not found in plugin %s"%modname)
+			print("Error: main() method not found in plugin %s" % modname)
 			continue	
 		
 		# check whether module has PLUGIN_NAME() method (optional)
 		try:
 			moddescr = getattr(sys.modules[modname], "PLUGIN_NAME")
-			print("Loaded plugin: %s - %s"%(modname, moddescr))
+			print("Loaded plugin: %s - %s" % (modname, moddescr))
 		except:
-			print("Loaded plugin: %s - (name not available)"%modname)
-			#print("Error: %s"%sys.exc_info()[0])
+			print("Loaded plugin: %s - (name not available)" % modname)
 			moddescr = modname
 
-		#TODO: this seems like black magic
-		action = "lambda: getattr(sys.modules[\"" + modname + "\"], 'main')(cursor, backup_path)"
-		function = eval(action)
-		
 		winmenu.add_command(
 			label=moddescr, 
-			command=function
+			command=getFunc(modname)
 		)		
 	
 	menubar.add_cascade(label="Plugins", menu=winmenu)
@@ -1000,7 +998,7 @@ if __name__ == '__main__':
 	
 	print("\nBuilding UI..")
 	
-	#TODO: make all these queries parameterized
+	#TODO: make this layout simpler
 	for domain_type_u in domain_types:
 		domain_type = str(domain_type_u[0])
 		domain_type_index = tree.insert('', 'end', text=domain_type, tag='base')
@@ -1097,19 +1095,16 @@ if __name__ == '__main__':
 					maintext("%i \"%s\" (%s)" %(seltable_field[0], seltable_field[1], seltable_field[2]))
 					seltable_fieldslist.append(str(seltable_field[1]))
 
-				#TODO: make these parameterized
 				# count fields from selected table
-				seltablecur.execute("SELECT COUNT(*) FROM %s" % seltable_tablename)
+				seltablecur.execute('SELECT COUNT(*) FROM %s' % seltable_tablename)
 				seltable_rownumber = seltablecur.fetchall();
-				maintext("\n\nThe selected table has %s rows"%seltable_rownumber[0][0])
+				maintext("\n\nThe selected table has %s rows" % seltable_rownumber[0][0])
 				limit = rowsnumber
 				offset = rowsoffset*rowsnumber
-				maintext("\nShowing %i rows from row %i."%(limit, offset))
+				maintext("\nShowing %i rows from row %i." % (limit, offset))
 							
 				# read all fields from selected table
 				seltablecur.execute("SELECT * FROM %s LIMIT %i OFFSET %i" % (seltable_tablename, limit, offset))
-				#TODO: remove these comments if things work here
-				#seltable_cont = seltablecur.fetchall();
 				
 				try:
 				
@@ -1233,23 +1228,26 @@ if __name__ == '__main__':
 
 		maintext("Selected: " + item_text + " (id " + str(item_id) + ")")
 		
-		#TODO: parameterize this
-		query = "SELECT * FROM indice WHERE id = %s" % item_id
-		cursor.execute(query)
+		query = '''
+			SELECT * FROM indice 
+			WHERE id = ?
+		'''
+		cursor.execute(query, (item_id,))
 		data = cursor.fetchone()
 		
-		if (not data): return
+		if not data:
+			return
 		
 		item_permissions = str(data[2])
-		item_userid = str(data[3])
-		item_groupid = str(data[4])
-		item_mtime = str(datetime.fromtimestamp(int(data[6])))
-		item_atime = str(datetime.fromtimestamp(int(data[7])))
-		item_ctime = str(datetime.fromtimestamp(int(data[8])))
-		item_filecode = str(data[9])
+		item_userid      = str(data[3])
+		item_groupid     = str(data[4])
+		item_mtime       = str(datetime.fromtimestamp(int(data[6])))
+		item_atime       = str(datetime.fromtimestamp(int(data[7])))
+		item_ctime       = str(datetime.fromtimestamp(int(data[8])))
+		item_filecode    = str(data[9])
 		item_link_target = str(data[14])
-		item_datahash = str(data[15])
-		item_flag = str(data[16])
+		item_datahash    = str(data[15])
+		item_flag        = str(data[16])
 		
 		maintext("\n\nElement type: " + item_type)
 		maintext("\nPermissions: " + item_permissions)
@@ -1264,13 +1262,16 @@ if __name__ == '__main__':
 		maintext("\nFlag: " + item_flag)
 
 		# file properties (from properties table, which is data from mbdb file)
-		#TODO: parameterize this
-		query = "SELECT property_name, property_val FROM properties WHERE file_id = %s" % item_id
-		cursor.execute(query)
+		query = '''
+			SELECT property_name, property_val
+			FROM properties
+			WHERE file_id = ?
+		'''
+		cursor.execute(query, (item_id,))
 		for data in cursor:
 			maintext("\n\nElement properties (from mdbd file):")
 			for element in data:
-				maintext("\n%s: %s" %(element[0], element[1]))
+				maintext("\n%s: %s" % (element[0], element[1]))
 		
 		# treat sym links
 		if (item_type == "l"):
@@ -1418,7 +1419,6 @@ if __name__ == '__main__':
 					maintext("\n- " + table_name);
 					
 					try:
-						#TODO: make this parameterized
 						tempcur.execute("SELECT count(*) FROM %s" % table_name);
 						elem_count = tempcur.fetchone()
 						maintext(" (%i elements) " % int(elem_count[0]))
