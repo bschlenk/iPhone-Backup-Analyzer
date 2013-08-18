@@ -270,12 +270,13 @@ def buttonBoxPress(event):
 		
 		textarea.mark_set("searchLimit", textarea.index("end"))
 		
-		searchindex = textarea.search("%s"%pattern, "%s+1c"%(searchindex) , "searchLimit", regexp=True, nocase=True)
-		if (not searchindex): return
+		searchindex = textarea.search(pattern, "%s+1c" % (searchindex) , "searchLimit", regexp=True, nocase=True)
+		if not searchindex:
+			return
 		
 		textarea.tag_delete("yellow")
 		textarea.tag_configure("yellow",background="#FFFF00")
-		textarea.tag_add("yellow", searchindex, "%s+%sc"%(searchindex, str(len(pattern))))
+		textarea.tag_add("yellow", searchindex, "%s+%sc" % (searchindex, str(len(pattern))))
 		
 		textarea.mark_set("current", searchindex)
 		textarea.yview(searchindex)
