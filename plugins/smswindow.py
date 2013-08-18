@@ -52,10 +52,16 @@ def OnClick(event):
 	tempdb = sqlite3.connect(filename)
 	tempcur = tempdb.cursor()
 	 
-	query = "SELECT text, date, flags, message.ROWID FROM message INNER JOIN msg_group ON msg_group.rowid = message.group_id WHERE msg_group.rowid = %i ORDER BY date "%(msg_group)
-	tempcur.execute(query)
-	for newElem in tempcur.fetchall():
-		
+	query = '''
+		SELECT text, date, flags, message.ROWID
+		FROM message
+		INNER JOIN msg_group
+		ON msg_group.rowid = message.group_id
+		WHERE msg_group.rowid = ?
+		ORDER BY date
+	'''
+	tempcur.execute(query, (msg_group,))
+	for newElem in tempcur:
 		try:
 			text = str(newElem[0])
 		except:
@@ -67,7 +73,7 @@ def OnClick(event):
 		elif (flag == 3):
 			status = "Sent"
 		else:
-			status = "(status %i unknown)"%flag
+			status = "(status %i unknown)" % flag
 		
 		newMess = [
 			text,
@@ -78,10 +84,14 @@ def OnClick(event):
 		
 		messages.append(newMess)
 	
-	query2 = "SELECT text, date, madrid_flags, ROWID FROM message WHERE is_madrid = 1 AND madrid_handle = \"%s\" ORDER BY ROWID "%(msg_address)
-	tempcur.execute(query2)
-	for newElem in tempcur.fetchall():
-		
+	query = '''
+		SELECT text, date, madrid_flags, ROWID
+		FROM message
+		WHERE is_madrid = 1 AND madrid_handle = ?
+		ORDER BY ROWID
+	'''
+	tempcur.execute(query2, (msg_address))
+	for newElem in tempcur:
 		try:
 			text = str(newElem[0])
 		except:
@@ -114,13 +124,13 @@ def OnClick(event):
 		
 		text = message[0]
 		date = message[1]
-		status = message[2]
+		status    = message[2]
 		messageid = message[3]
 		
 		convdate = datetime.fromtimestamp(date)
-		newday = convdate.day
+		newday   = convdate.day
 		newmonth = convdate.month
-		newyear = convdate.year
+		newyear  = convdate.year
 		
 		# checks whether the day is the same from the last message
 		changeday = 0
@@ -132,26 +142,29 @@ def OnClick(event):
 			
 		# if day changed print a separator with date	
 		if (changeday == 1):
-			textarea.insert(END, "\n******** %s ********\n"%convdate.date())
+			textarea.insert(END, "\n******** %s ********\n" % convdate.date())
 		else:
 			textarea.insert(END, "-------\n")
 		
 		# prints message date and text
-		textarea.insert(END, "%s in date: %s\n"%(status,convdate))
-		textarea.insert(END, "%s\n"%text)
+		textarea.insert(END, "%s in date: %s\n" % (status,convdate))
+		textarea.insert(END, "%s\n" % text)
 		
 		# other message parts (from table message_id)
-		query = "SELECT part_id, content_type, content_loc FROM msg_pieces "
-		query = query + "WHERE message_id = %i ORDER BY part_id "%messageid
-		tempcur.execute(query)
-		attachments = tempcur.fetchall()
+		query = '''
+			SELECT part_id, content_type, content_loc
+			FROM msg_pieces
+			WHERE message_id = ?
+			ORDER BY part_id
+		'''
+		tempcur.execute(query, (messageid,))
 		
 		# prints attachments under the message text
-		for attachment in attachments:
+		for attachment in tempcur:
 			part_id = attachment[0]
 			content_type = attachment[1]
 			content_loc = attachment[2]
-			textarea.insert(END, "-> %i - %s (%s)\n"%(part_id, content_type, content_loc))
+			textarea.insert(END, "-> %i - %s (%s)\n" % (part_id, content_type, content_loc))
 
 	tempdb.close()
 
@@ -176,8 +189,8 @@ def main(cursor, backup_path):
 	smswindow.grid_rowconfigure(1, weight=1)
 	
 	# header label
-	smstitle = Label(smswindow, text = "SMS data from: " + filename, relief = RIDGE)
-	smstitle.grid(column = 0, row = 0, sticky="ew", columnspan=4, padx=5, pady=5)
+	smstitle = Label(smswindow, text="SMS data from: %s" % filename, relief=RIDGE)
+	smstitle.grid(column=0, row=0, sticky='ew', columnspan=4, padx=5, pady=5)
 
 	# tree
 	groupstree = ttk.Treeview(smswindow, columns=("address"),
@@ -211,8 +224,8 @@ def main(cursor, backup_path):
 		
 	# footer label
 	footerlabel = StringVar()
-	smsfooter = Label(smswindow, textvariable = footerlabel, relief = RIDGE)
-	smsfooter.grid(column = 0, row = 3, sticky="ew", columnspan=4, padx=5, pady=5)
+	smsfooter = Label(smswindow, textvariable=footerlabel, relief=RIDGE)
+	smsfooter.grid(column=0, row=3, sticky="ew", columnspan=4, padx=5, pady=5)
 	
 	# destroy window when closed
 	smswindow.protocol("WM_DELETE_WINDOW", smswindow.destroy)
@@ -222,33 +235,40 @@ def main(cursor, backup_path):
 	tempcur = tempdb.cursor() 
 	
 	# footer statistics
-	query = "SELECT count(ROWID) FROM msg_group"
-	tempcur.execute(query)
-	groupsnumber = tempcur.fetchall()[0][0]
-	query = "SELECT count(ROWID) FROM message"
-	tempcur.execute(query)
-	smsnumber = tempcur.fetchall()[0][0]
-	footerlabel.set("Found %s messages in %s groups."%(smsnumber, groupsnumber))
+	tempcur.execute('SELECT count(ROWID) FROM msg_group')
+	groupsnumber = tempcur.fetchone()[0]
+	tempcur.execute('SELECT count(ROWID) FROM message')
+	smsnumber = tempcur.fetchone()[0]
+	footerlabel.set("Found %s messages in %s groups." % (smsnumber, groupsnumber))
 	
 	# uppertextarea statistics
 	def readKey(key):
-		query = "SELECT value FROM _SqliteDatabaseProperties WHERE key = \"%s\""%key
-		tempcur.execute(query)
+		query = '''
+			SELECT value
+			FROM _SqliteDatabaseProperties
+			WHERE key = ?
+		'''
+		tempcur.execute(query, (key,))
 		data = tempcur.fetchall()
-		if (len(data) > 0):
+		if data:
 			value = data[0][0]
 		else:
 			value = 0
 		return value
 	
-	uppertextarea.insert(END, "Incoming messages (after last reset): %s\n"%(readKey("counter_in_all")))	
-	uppertextarea.insert(END, "Lifetime incoming messages: %s\n"%(readKey("counter_in_lifetime")))
-	uppertextarea.insert(END, "Outgoing messages (after last reset): %s\n"%(readKey("counter_out_all")))
-	uppertextarea.insert(END, "Lifetime outgoing messages: %s\n"%(readKey("counter_out_lifetime")))
-	uppertextarea.insert(END, "Counter last reset: %s\n"%(readKey("counter_last_reset")))
+	uppertextarea.insert(END, "Incoming messages (after last reset): %s\n" % (readKey("counter_in_all")))	
+	uppertextarea.insert(END, "Lifetime incoming messages: %s\n" % readKey("counter_in_lifetime"))
+	uppertextarea.insert(END, "Outgoing messages (after last reset): %s\n" % readKey("counter_out_all"))
+	uppertextarea.insert(END, "Lifetime outgoing messages: %s\n" % readKey("counter_out_lifetime"))
+	uppertextarea.insert(END, "Counter last reset: %s\n" % readKey("counter_last_reset"))
 	
 	# populating tree with SMS groups
-	query = "SELECT DISTINCT(msg_group.rowid), address FROM msg_group INNER JOIN group_member ON msg_group.rowid = group_member.group_id"
+	query = '''
+		SELECT DISTINCT(msg_group.rowid), address
+		FROM msg_group
+		INNER JOIN group_member
+		ON msg_group.rowid = group_member.group_id
+	'''
 	tempcur.execute(query)
 	groups = tempcur.fetchall()
 	tempdb.close()
