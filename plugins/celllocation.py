@@ -17,6 +17,7 @@ PLUGIN_NAME = "Cell Location"
 import plugins_utils
 
 from Tkinter import *
+import tkMessageBox
 import sqlite3
 import ttk
 from datetime import datetime
@@ -248,7 +249,13 @@ def main(cursor, backup_path):
 	
 	# footer statistics
 	query = "SELECT count(*) FROM CellLocation"
-	tempcur.execute(query)
+	try:
+		tempcur.execute(query)
+	except sqlite3.OperationalError:
+		tkMessageBox.showwarning('Cell Location', 'this is only available for backups of iOS version 4.3 or lower')
+		cellwindow.destroy()
+		return
+
 	cellsnumber = tempcur.fetchall()[0][0]
 	query = "SELECT DISTINCT(timestamp) FROM CellLocation ORDER BY timestamp"
 	tempcur.execute(query)

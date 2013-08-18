@@ -1035,8 +1035,6 @@ if __name__ == '__main__':
 			for path_u in paths:
 				path = str(path_u[0])
 
-				print path
-
 				path_index = file_path_map.get(path, domain_name_index)
 				if path_index == domain_name_index:
 					if path:
@@ -1053,7 +1051,6 @@ if __name__ == '__main__':
 				
 				for f in files:
 					file_name = str(f[0].encode("utf-8"))
-					print '\t' + file_name
 					if (f[1]) < 1024:
 						file_dim = str(f[1]) + " b"
 					else:
