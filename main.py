@@ -1003,7 +1003,7 @@ if __name__ == '__main__':
 	for domain_type_u in domain_types:
 		domain_type = str(domain_type_u[0])
 		domain_type_index = tree.insert('', 'end', text=domain_type, tag='base')
-		print("Listing elements for domain family: %s" %domain_type)
+		print("Listing elements for domain family: %s" % domain_type)
 		
 		query = '''
 			SELECT DISTINCT(domain)
@@ -1017,7 +1017,9 @@ if __name__ == '__main__':
 		for domain_name_u in domain_names:
 			domain_name = str(domain_name_u[0])
 			
-			domain_name_index = tree.insert(domain_type_index, 'end', text=substWith(domain_name, "<no domain>"), tag='base')
+			domain_name_index = domain_type_index
+			if domain_name:
+				domain_name_index = tree.insert(domain_type_index, 'end', text=domain_name, tag='base')
 			
 			query = '''
 				SELECT DISTINCT(file_path)
@@ -1028,27 +1030,44 @@ if __name__ == '__main__':
 			cursor.execute(query, (domain_type, domain_name))
 			paths = cursor.fetchall()
 			
+			file_path_map = {} # store name, treeindex pairs
+
 			for path_u in paths:
 				path = str(path_u[0])
-				path_index = tree.insert(domain_name_index, 'end', text=substWith(path, "/"), tag='base')
+
+				print path
+
+				path_index = file_path_map.get(path, domain_name_index)
+				if path_index == domain_name_index:
+					if path:
+						path_index = tree.insert(domain_name_index, 'end', text=path, tag='base')
 				
 				query = '''
 					SELECT file_name, filelen, id, type
 					FROM indice 
-					WHERE domain_type = ? AND domain = ? AND file_path = ? ORDER BY file_name
+					WHERE domain_type = ? AND domain = ? AND file_path = ?
+					ORDER BY file_name
 				'''
 				cursor.execute(query, (domain_type, domain_name, path))
 				files = cursor.fetchall()
 				
 				for f in files:
 					file_name = str(f[0].encode("utf-8"))
+					print '\t' + file_name
 					if (f[1]) < 1024:
 						file_dim = str(f[1]) + " b"
 					else:
 						file_dim = str(f[1] / 1024) + " kb"
 					file_id = int(f[2])
 					file_type = str(f[3])
-					tree.insert(path_index, 'end', text=substWith(file_name, "."), values=(file_type, file_dim, file_id), tag='base')
+
+					if file_name:
+						file_index = tree.insert(path_index, 'end', text=file_name, values=(file_type, file_dim, file_id), tag='base')
+						if file_type == 'd':
+							file_path_map[os.path.join(path, file_name)] = file_index
+					else:
+						tree.item(path_index, values=(file_type, file_dim, file_id))
+
 			
 	print("Construction complete.\n")
 	
