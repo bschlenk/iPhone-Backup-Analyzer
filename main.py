@@ -66,15 +66,17 @@ import magic
 import mbdbdecoding
 # plistutils.py - generic functions to handle plist files
 import plistutils
+# ipadatabase.py - the internal database used by iPhoneAnalyzer
+from ipbadatabase import IPBADatabase
 
 # GLOBALS -------------------------------------------------------------------------------------------
 
 # version
-version = "1.5"
-creation_date = "Feb. 2012"
+version = '1.5'
+creation_date = 'Feb. 2012'
 
 # set this path from command line
-backup_path = "" 
+backup_path = ''
 
 # saves references to images in textarea
 # (to keep them alive after callback end)
@@ -102,11 +104,8 @@ iOSVersion = 5
 
 # FUNCTIONS -------------------------------------------------------------------------------------------
 
-def substWith(text, subst = "-"):
-	if not text:
-		return subst
-	else:
-		return text
+def substWith(text, subst = '-'):
+	return text if text else subst
 
 def autoscroll(sbar, first, last):
     """Hide and show scrollbar as needed."""
@@ -117,13 +116,13 @@ def autoscroll(sbar, first, last):
         sbar.grid()
     sbar.set(first, last)
 	
-def md5(md5fileName, excludeLine="", includeLine=""):
+def md5(md5fileName, excludeLine=u'', includeLine=u''):
 	"""Compute md5 hash of the specified file"""
 	m = hashlib.md5()
 	try:
-		fd = open(md5fileName,"rb")
+		fd = open(md5fileName, 'rb')
 	except IOError:
-		return "<none>"
+		return '<none>'
 	content = fd.readlines()
 	fd.close()
 	for eachLine in content:
@@ -140,13 +139,13 @@ def dump(src, length=8, limit=10000):
 	result=''
 	while src:
 		s,src = src[:length],src[length:]
-		hexa = ' '.join(["%02X"%ord(x) for x in s])
+		hexa = ' '.join(['%02X'%ord(x) for x in s])
 		s = s.translate(FILTER)
-		result += "%04X   %-*s   %s\n" % (N, length*3, hexa, s)
+		result += '%04X   %-*s   %s\n' % (N, length*3, hexa, s)
 		N += length
 		if (len(result) > limit):
 			src = "";
-			result += "(analysis limit reached after %i bytes)"%limit
+			result += '(analysis limit reached after %i bytes)' % limit
 	return result
 
 def hex2string(src, length=8):
@@ -154,7 +153,7 @@ def hex2string(src, length=8):
 	result=''
 	while src:
 		s,src = src[:length],src[length:]
-		hexa = ' '.join(["%02X"%ord(x) for x in s])
+		hexa = ' '.join(['%02X' % ord(x) for x in s])
 		s = s.translate(FILTER)
 		N += length
 		result += s
@@ -172,7 +171,7 @@ def hex2nums(src, length=8):
 	return ' '.join(result)
     
 def log(text):
-	logbox.insert(END, "\n%s"%text)
+	logbox.insert(END, '\n%s' % text)
 	logbox.yview(END)
 	
 def maintext(text):
@@ -396,41 +395,8 @@ if __name__ == '__main__':
 			print("\nManifest.mbdx not found in path \"%s\". Are you sure this is a correct iOS backup dir, and are you sure this is an iOS 4 backup?\n"%(backup_path))
 			sys.exit(1)
 	
-	# prepares DB
-	# database = sqlite3.connect('MyDatabase.db') # Create a database file
-	database = sqlite3.connect(':memory:') # Create a database file in memory
-	cursor = database.cursor() # Create a cursor
-	cursor.execute('''
-		CREATE TABLE indice (
-			id INTEGER PRIMARY KEY AUTOINCREMENT,
-			type VARCHAR(1),
-			permissions VARCHAR(9),
-			userid VARCHAR(8),
-			groupid VARCHAR(8),
-			filelen INT,
-			mtime INT,
-			atime INT,
-			ctime INT,
-			fileid VARCHAR(50),
-			domain_type VARCHAR(100),
-			domain VARCHAR(100),
-			file_path VARCHAR(100),
-			file_name VARCHAR(100),
-			link_target VARCHAR(100),
-			datahash VARCHAR(100),
-			flag VARCHAR(100)
-		)
-	''')
-	
-	cursor.execute('''
-		CREATE TABLE properties (
-			id INTEGER PRIMARY KEY AUTOINCREMENT,
-			file_id INTEGER,
-			property_name VARCHAR(100),
-			property_val VARCHAR(100)
-		)
-	''')
-		
+	database = IPBADatabase.connect()
+
 	# count items parsed from Manifest file
 	items = 0;
 	
@@ -1033,7 +999,7 @@ if __name__ == '__main__':
 			file_path_map = {} # store name, treeindex pairs
 
 			for path_u in paths:
-				path = str(path_u[0])
+				path = path_u[0].encode('ascii', errors='ignore')
 
 				path_index = file_path_map.get(path, domain_name_index)
 				if path_index == domain_name_index:
