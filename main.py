@@ -70,11 +70,11 @@ import plistutils
 # GLOBALS -------------------------------------------------------------------------------------------
 
 # version
-version = "1.5"
-creation_date = "Feb. 2012"
+version = u'1.5'
+creation_date = u'Feb. 2012'
 
 # set this path from command line
-backup_path = "" 
+backup_path = u'' 
 
 # saves references to images in textarea
 # (to keep them alive after callback end)
@@ -89,8 +89,8 @@ rowsnumber = 100
 smallmonitor = False
 
 # global font configuration
-normalglobalfont = ('Times', 12, 'normal')
-smallglobalfont = ('Times', 8, 'normal')
+normalglobalfont = (u'Times', 12, u'normal')
+smallglobalfont = (u'Times', 8, u'normal')
 globalfont=normalglobalfont
 
 # iOS version
@@ -102,14 +102,11 @@ iOSVersion = 5
 
 # FUNCTIONS -------------------------------------------------------------------------------------------
 
-def substWith(text, subst = "-"):
-	if not text:
-		return subst
-	else:
-		return text
+def substWith(text, subst = u'-'):
+	return text if text else subst
 
 def autoscroll(sbar, first, last):
-    """Hide and show scrollbar as needed."""
+    u"""Hide and show scrollbar as needed."""
     first, last = float(first), float(last)
     if first <= 0 and last >= 1:
         sbar.grid_remove()
@@ -117,13 +114,13 @@ def autoscroll(sbar, first, last):
         sbar.grid()
     sbar.set(first, last)
 	
-def md5(md5fileName, excludeLine="", includeLine=""):
-	"""Compute md5 hash of the specified file"""
+def md5(md5fileName, excludeLine=u'', includeLine=u''):
+	u"""Compute md5 hash of the specified file"""
 	m = hashlib.md5()
 	try:
-		fd = open(md5fileName,"rb")
+		fd = open(md5fileName,u'rb')
 	except IOError:
-		return "<none>"
+		return u'<none>'
 	content = fd.readlines()
 	fd.close()
 	for eachLine in content:
@@ -131,22 +128,22 @@ def md5(md5fileName, excludeLine="", includeLine=""):
 			continue
 		m.update(eachLine)
 	m.update(includeLine)
-	return m.hexdigest()
+	return unicode(m.hexdigest())
 
 FILTER=''.join([(len(repr(chr(x)))==3) and chr(x) or '.' for x in range(256)])
 
 def dump(src, length=8, limit=10000):
 	N=0
-	result=''
+	result=u''
 	while src:
 		s,src = src[:length],src[length:]
-		hexa = ' '.join(["%02X"%ord(x) for x in s])
+		hexa = ' '.join(['%02X' % ord(x) for x in s])
 		s = s.translate(FILTER)
-		result += "%04X   %-*s   %s\n" % (N, length*3, hexa, s)
+		result += '%04X   %-*s   %s\n' % (N, length*3, hexa, s)
 		N += length
 		if (len(result) > limit):
-			src = "";
-			result += "(analysis limit reached after %i bytes)"%limit
+			src = u'';
+			result += u'(analysis limit reached after %i bytes)' % limit
 	return result
 
 def hex2string(src, length=8):
@@ -995,52 +992,46 @@ if __name__ == '__main__':
 	tree.insert(base_files_index, 'end', text="Status.plist", values=("X", "", 0), tag='base')
 	
 	cursor.execute("SELECT DISTINCT(domain_type) FROM indice");
-	domain_types = cursor.fetchall()
+	domain_types = [x[0] for x in list(cursor)]
 	
 	print("\nBuilding UI..")
 	
-	#TODO: make this layout simpler
-	for domain_type_u in domain_types:
-		domain_type = str(domain_type_u[0])
+	for domain_type in domain_types:
 		domain_type_index = tree.insert('', 'end', text=domain_type, tag='base')
-		print("Listing elements for domain family: %s" % domain_type)
+		print(u'Listing elements for domain family: %s' % domain_type)
 		
-		query = '''
+		query = u'''
 			SELECT DISTINCT(domain)
 			FROM indice
 			WHERE domain_type = ?
 			ORDER BY domain
 		'''
 		cursor.execute(query, (domain_type,))
-		domain_names = cursor.fetchall()
+		domain_names = [x[0] for x in list(cursor)]
 		
-		for domain_name_u in domain_names:
-			domain_name = str(domain_name_u[0])
-			
+		for domain_name in domain_names:
 			domain_name_index = domain_type_index
 			if domain_name:
 				domain_name_index = tree.insert(domain_type_index, 'end', text=domain_name, tag='base')
 			
-			query = '''
+			query = u'''
 				SELECT DISTINCT(file_path)
 				FROM indice
 				WHERE domain_type = ? AND domain = ?
 				ORDER BY file_path
 			'''
 			cursor.execute(query, (domain_type, domain_name))
-			paths = cursor.fetchall()
+			paths = [x[0] for x in list(cursor)]
 			
 			file_path_map = {} # store name, treeindex pairs
 
-			for path_u in paths:
-				path = str(path_u[0])
-
+			for path in paths:
 				path_index = file_path_map.get(path, domain_name_index)
 				if path_index == domain_name_index:
 					if path:
 						path_index = tree.insert(domain_name_index, 'end', text=path, tag='base')
 				
-				query = '''
+				query = u'''
 					SELECT file_name, filelen, id, type
 					FROM indice 
 					WHERE domain_type = ? AND domain = ? AND file_path = ?
@@ -1050,23 +1041,23 @@ if __name__ == '__main__':
 				files = cursor.fetchall()
 				
 				for f in files:
-					file_name = str(f[0].encode("utf-8"))
+					file_name = f[0]
 					if (f[1]) < 1024:
-						file_dim = str(f[1]) + " b"
+						file_dim = unicode(f[1]) + u' b'
 					else:
-						file_dim = str(f[1] / 1024) + " kb"
+						file_dim = str(f[1] / 1024) + u' kb'
 					file_id = int(f[2])
-					file_type = str(f[3])
+					file_type = f[3]
 
 					if file_name:
 						file_index = tree.insert(path_index, 'end', text=file_name, values=(file_type, file_dim, file_id), tag='base')
-						if file_type == 'd':
+						if file_type == u'd':
 							file_path_map[os.path.join(path, file_name)] = file_index
 					else:
 						tree.item(path_index, values=(file_type, file_dim, file_id))
 
 			
-	print("Construction complete.\n")
+	print(u'Construction complete.\n')
 	
 	# Now that the UI has been build, we cancel the "withdraw" operation done before
 	# and show the main window
@@ -1085,15 +1076,15 @@ if __name__ == '__main__':
 		if (not tablestree.selection()): return;
 		
 		seltable = tablestree.selection()[0]
-		seltable_dbname = tablestree.set(seltable, "filename")
-		seltable_tablename = tablestree.set(seltable, "tablename")
+		seltable_dbname = tablestree.set(seltable, 'filename')
+		seltable_tablename = tablestree.set(seltable, 'tablename')
 		
 		# clears main text field
 		clearmaintext()
 				
 		# table informations
-		maintext("Dumping table: %s\nFrom file: %s"%(seltable_tablename, seltable_dbname))
-		log("Dumping table %s from database %s."%(seltable_tablename, seltable_dbname))
+		maintext(u'Dumping table: %s\nFrom file: %s' % (seltable_tablename, seltable_dbname))
+		log(u'Dumping table %s from database %s.' % (seltable_tablename, seltable_dbname))
 		
 		if (os.path.exists(seltable_dbname)):
 			seltabledb = sqlite3.connect(seltable_dbname)
@@ -1101,15 +1092,15 @@ if __name__ == '__main__':
 				seltablecur = seltabledb.cursor() 
 				
 				# read selected table indexes
-				seltablecur.execute("PRAGMA table_info(%s)" % seltable_tablename)
+				seltablecur.execute(u'PRAGMA table_info(%s)' % seltable_tablename)
 				seltable_fields = seltablecur.fetchall();
 				
 				# append table fields to main textares
 				seltable_fieldslist = []
-				maintext("\n\nTable Fields:")
+				maintext(u'\n\nTable Fields:')
 				for seltable_field in seltable_fields:
-					maintext("\n- ")
-					maintext("%i \"%s\" (%s)" %(seltable_field[0], seltable_field[1], seltable_field[2]))
+					maintext(u'\n- ')
+					maintext(u'%i "%s" (%s)' % (seltable_field[0], seltable_field[1], seltable_field[2]))
 					seltable_fieldslist.append(str(seltable_field[1]))
 
 				# count fields from selected table
@@ -1212,8 +1203,8 @@ if __name__ == '__main__':
 		if (item_type == "X"):	
 			item_realpath = os.path.join(backup_path, item_text)
 			fileNameForViewer = item_realpath
-			maintext("Selected: " + item_realpath)
-			log("Opening file %s"%item_realpath)
+			maintext(u'Selected: ' + item_realpath)
+			log(u'Opening file %s' % item_realpath)
 			
 			if (os.path.exists(item_realpath)):		
 				
@@ -1239,13 +1230,13 @@ if __name__ == '__main__':
 					maintext(plistutils.readPlist(item_realpath))
 			
 			else:
-				log("...troubles while opening file %s (does not exist)"%item_realpath)
+				log(u'...troubles while opening file %s (does not exist)' % item_realpath)
 			
 			return
 
-		maintext("Selected: " + item_text + " (id " + str(item_id) + ")")
+		maintext(u'Selected: %s (id %s)' % (item_text, item_id))
 		
-		query = '''
+		query = u'''
 			SELECT * FROM indice 
 			WHERE id = ?
 		'''
@@ -1255,88 +1246,88 @@ if __name__ == '__main__':
 		if not data:
 			return
 		
-		item_permissions = str(data[2])
-		item_userid      = str(data[3])
-		item_groupid     = str(data[4])
-		item_mtime       = str(datetime.fromtimestamp(int(data[6])))
-		item_atime       = str(datetime.fromtimestamp(int(data[7])))
-		item_ctime       = str(datetime.fromtimestamp(int(data[8])))
-		item_filecode    = str(data[9])
-		item_link_target = str(data[14])
-		item_datahash    = str(data[15])
-		item_flag        = str(data[16])
+		item_permissions = unicode(data[2])
+		item_userid      = unicode(data[3])
+		item_groupid     = unicode(data[4])
+		item_mtime       = unicode(datetime.fromtimestamp(int(data[6])))
+		item_atime       = unicode(datetime.fromtimestamp(int(data[7])))
+		item_ctime       = unicode(datetime.fromtimestamp(int(data[8])))
+		item_filecode    = unicode(data[9])
+		item_link_target = unicode(data[14])
+		item_datahash    = unicode(data[15])
+		item_flag        = unicode(data[16])
 		
-		maintext("\n\nElement type: " + item_type)
-		maintext("\nPermissions: " + item_permissions)
-		maintext("\nData hash: ")
-		maintext("\n " + item_datahash)
-		maintext("\nUser id: " + item_userid)
-		maintext("\nGroup id: " + item_groupid)
-		maintext("\nLast modify time: " + item_mtime)
-		maintext("\nLast access Time: " + item_atime)
-		maintext("\nCreation time: " + item_ctime)
-		maintext("\nFile Key (obfuscated file name): " + item_filecode)
-		maintext("\nFlag: " + item_flag)
+		maintext(u'\n\nElement type: ' + item_type)
+		maintext(u'\nPermissions: ' + item_permissions)
+		maintext(u'\nData hash: ')
+		maintext(u'\n ' + item_datahash)
+		maintext(u'\nUser id: ' + item_userid)
+		maintext(u'\nGroup id: ' + item_groupid)
+		maintext(u'\nLast modify time: ' + item_mtime)
+		maintext(u'\nLast access Time: ' + item_atime)
+		maintext(u'\nCreation time: ' + item_ctime)
+		maintext(u'\nFile Key (obfuscated file name): ' + item_filecode)
+		maintext(u'\nFlag: ' + item_flag)
 
 		# file properties (from properties table, which is data from mbdb file)
-		query = '''
+		query = u'''
 			SELECT property_name, property_val
 			FROM properties
 			WHERE file_id = ?
 		'''
 		cursor.execute(query, (item_id,))
 		for data in cursor:
-			maintext("\n\nElement properties (from mdbd file):")
+			maintext(u'\n\nElement properties (from mdbd file):')
 			for element in data:
-				maintext("\n%s: %s" % (element[0], element[1]))
+				maintext(u'\n%s: %s' % (element[0], element[1]))
 		
 		# treat sym links
-		if (item_type == "l"):
-			maintext("\n\nThis item is a symbolic link to another file.")
-			maintext("\nLink Target: " + item_link_target)
-			fileNameForViewer = ""
+		if (item_type == u'l'):
+			maintext(u'\n\nThis item is a symbolic link to another file.')
+			maintext(u'\nLink Target: ' + item_link_target)
+			fileNameForViewer = u''
 			return
 			
 		# treat directories
-		if (item_type == "d"):
-			maintext("\n\nThis item represents a directory.")
-			fileNameForViewer = ""
+		if (item_type == u'd'):
+			maintext(u'\n\nThis item represents a directory.')
+			fileNameForViewer = u''
 			return
 		
 		# last modification date of the file in the backup directory
-		last_mod_time = time.strftime("%m/%d/%Y %I:%M:%S %p",time.localtime(os.path.getmtime(os.path.join(backup_path, item_filecode))))
-		maintext("\n\nLast modification time (in backup dir): %s"%last_mod_time)
+		last_mod_time = time.strftime(u'%m/%d/%Y %I:%M:%S %p',time.localtime(os.path.getmtime(os.path.join(backup_path, item_filecode))))
+		maintext(u'\n\nLast modification time (in backup dir): %s' % last_mod_time)
 		
-		maintext("\n\nAnalize file: ")
+		maintext(u'\n\nAnalize file: ')
 		
 		item_realpath = os.path.join(backup_path, item_filecode)
 		fileNameForViewer = item_realpath
 		
-		log("Opening file %s (%s)"%(item_realpath, item_text))
+		log(u'Opening file %s (%s)' % (item_realpath, item_text))
 		
 		# check for existence 
 		if (not os.path.exists(item_realpath)):
-			maintext("unable to analyze file")
+			maintext(u'unable to analyze file')
 			return			
 		
 		# print file type (from magic numbers)
 		filemagic = magic.file(item_realpath)
-		maintext("\nFile tipe (from magic numbers): %s" %filemagic)
+		maintext(u'\nFile type (from magic numbers): %s' % filemagic)
 		
 		# print file MD5 hash
-		maintext("\nFile MD5 hash: ")
+		maintext(u'\nFile MD5 hash: ')
 		maintext(md5(item_realpath))
 		
 		#print first 30 bytes from file
-		with open(item_realpath, 'rb') as fh:
+		with open(item_realpath, u'rb') as fh:
 			first30bytes = fh.read(30)
-			maintext("\n\nFirst 30 hex bytes from file: ")
-			maintext("\n" + hex2nums(first30bytes))#binascii.b2a_uu(text))
+			maintext(u'\n\nFirst 30 hex bytes from file: ')
+			maintext(u'\n' + hex2nums(first30bytes))
 			
 		#print file content (if ASCII file) otherwise only first 30 bytes
-		if (filemagic == "ASCII text" or filemagic.partition("/")[0] == "text"):
+		if (filemagic == u'ASCII text' or filemagic.partition('/')[0] == u'text'):
 			with open(item_realpath, 'rb') as fh:
-				maintext("\n\nASCII content:\n\n")
+				maintext(u'\n\nASCII content:\n\n')
 				line = fh.readline()
 				while line:
 					line = fh.readline()
