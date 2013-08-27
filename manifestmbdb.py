@@ -1,4 +1,131 @@
 import struct
+import sqlite3
+import hashlib
+	
+class ManifestDatabaseError(Exception):
+	pass
+
+class ManifestDatabase(sqlite3.Connection):
+
+	@staticmethod
+	def connect():
+		return sqlite3.connect(':memory:', factory=ManifestDatabase)
+
+	def __init__(self, *args, **kwargs):
+		super(ManifestDatabase, self).__init__(*args, **kwargs)
+
+		cursor = self.cursor()
+		cursor.execute(u'''
+			CREATE TABLE indice (
+				id INTEGER PRIMARY KEY AUTOINCREMENT,
+				type TEXT,
+				permissions TEXT,
+				userid TEXT,
+				groupid TEXT,
+				filelen INT,
+				mtime INT,
+				atime INT,
+				ctime INT,
+				fileid TEXT,
+				domain_type TEXT,
+				domain TEXT,
+				file_path TEXT,
+				file_name TEXT,
+				link_target TEXT,
+				datahash TEXT,
+				flag TEXT
+			)
+		''')
+		
+		cursor.execute(u'''
+			CREATE TABLE properties (
+				id INTEGER PRIMARY KEY AUTOINCREMENT,
+				fileid INTEGER,
+				name TEXT,
+				value TEXT
+			)
+		''')
+		
+	
+	insertStatement = '''
+		INSERT INTO indice(
+			type, 
+			permissions, 
+			userid, 
+			groupid, 
+			filelen, 
+			mtime, 
+			atime, 
+			ctime, 
+			fileid, 
+			domain_type, 
+			domain, 
+			file_path, 
+			file_name, 
+			link_target, 
+			datahash, 
+			flag
+		) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'''
+
+	def insertRecord(self, rec):
+		# decoding element type (symlink, file, directory)
+		if (rec['mode']   & 0xE000) == 0xA000: obj_type = 'l' # symlink
+		elif (rec['mode'] & 0xE000) == 0x8000: obj_type = '-' # file
+		elif (rec['mode'] & 0xE000) == 0x4000: obj_type = 'd' # dir
+			
+		# separates domain type (AppDomain, HomeDomain, ...) from domain name
+		[domaintype, sep, domain] = rec['domain'].partition('-');
+			
+		# separates file name from file path
+		if (obj_type == 'd'):
+			filepath = rec['path']
+			filename = '';
+		else:
+			[filepath, sep, filename] = rec['path'].rpartition('/')
+
+		values = (obj_type, self._modestr(rec['mode']), hex(rec['userid']), hex(rec['groupid']), rec['filelength'], 
+			rec['mtime'], rec['atime'], rec['ctime'], rec['fileid'], domaintype, domain, filepath, filename,
+			rec['linktarget'], rec['datahash'], rec['flag'],
+		)
+		
+		cursor = self.cursor()
+		cursor.execute(ManifestDatabase.insertStatement, values)
+		
+		# check if file has properties to store in the properties table
+		if (rec['properties']):
+
+			query = u'''
+				SELECT id FROM indice WHERE
+				domain = ?
+				AND fileid = ?
+				LIMIT 1
+			'''
+			 
+			cursor.execute(query, (domain, rec['fileid']))
+			rowid = cursor.fetchone()
+			
+			if (rowid):
+				index = rowid[0]
+				properties = rec['properties']
+				query = u'INSERT INTO properties(fileid, name, value) VALUES (?, ?, ?)'
+				values = [(index, p, properties[p]) for p in properties]
+				cursor.executemany(query, values);
+
+		cursor.close()
+		self.commit()
+
+	def _modestr(self, val):
+		def mode(val):
+			if (val & 0x4): r = 'r'
+			else: r = '-'
+			if (val & 0x2): w = 'w'
+			else: w = '-'
+			if (val & 0x1): x = 'x'
+			else: x = '-'
+			return r+w+x
+		val = val & 0x0FFF
+		return mode(val>>6) + mode((val>>3)) + mode(val)
+		
 
 class ManifestMBDBError(Exception):
 	pass
@@ -12,8 +139,10 @@ class ManifestMBDB(object):
 
 		header = data[:4]
 		if header != 'mbdb':
-			raise ManifestMBDBError('"%s" is not a valid mbdb file' % fname)
-		self.version = 'mbdb %s' % repr((ord(data[4]), ord(data[5])))
+			raise ManifestMBDBError(u'"%s" is not a valid mbdb file' % fname)
+		self.version = u'mbdb %s' % repr((ord(data[4]), ord(data[5])))
+
+		self._db = ManifestDatabase.connect()
 
 		offset = 6
 		dataLength = len(data)
@@ -21,6 +150,8 @@ class ManifestMBDB(object):
 		while offset < dataLength:
 			record, offset = self._decodeRecord(data, offset)
 			self.records.append(record)
+			self._db.insertRecord(record)
+
 	
 	def __list__(self):
 		return self.records
@@ -31,21 +162,24 @@ class ManifestMBDB(object):
 	def __iter__(self):
 		return iter(self.records)
 
+	def __getitem__(self, key):
+		return self.records[key]
+
 	def _decodeRecord(self, data, offset):
 		record = {}
 		record['domain'], offset     = self._decodeString(data, offset)
 		record['path'], offset       = self._decodeString(data, offset)
 		record['linktarget'], offset = self._decodeString(data, offset)
-		record['datahash'], offset   = self._decodeString(data, offset)
+		record['datahash'], offset   = self._decodeSha1(data, offset)
 		record['unknown1'], offset   = self._decodeString(data, offset)
 		record['mode'], offset       = self._decodeUint16(data, offset)
 		record['unknown2'], offset   = self._decodeUint32(data, offset)
 		record['unknown3'], offset   = self._decodeUint32(data, offset)
 		record['userid'], offset     = self._decodeUint32(data, offset)
 		record['groupid'], offset    = self._decodeUint32(data, offset)
-		record['time1'], offset      = self._decodeUint32(data, offset)
-		record['time2'], offset      = self._decodeUint32(data, offset)
-		record['time3'], offset      = self._decodeUint32(data, offset)
+		record['mtime'], offset      = self._decodeUint32(data, offset)
+		record['atime'], offset      = self._decodeUint32(data, offset)
+		record['ctime'], offset      = self._decodeUint32(data, offset)
 		record['filelength'], offset = self._decodeUint64(data, offset)
 		record['flag'], offset       = self._decodeUint8(data, offset)
 		numProperties, offset = self._decodeUint8(data, offset)
@@ -54,6 +188,9 @@ class ManifestMBDB(object):
 			prop, offset = self._decodeString(data, offset)
 			value, offset = self._decodeString(data, offset)
 			record['properties'][prop] = value
+		sha1 = hashlib.sha1()
+		sha1.update((u'%s-%s' % (record['domain'], record['path'])).encode('utf-8'))
+		record['fileid'] = sha1.hexdigest()	
 		return (record, offset)
 
 	def _decodeUint8(self, data, offset):
@@ -74,10 +211,18 @@ class ManifestMBDB(object):
 
 	def _decodeString(self, data, offset):
 		if data[offset:offset+2].encode('hex') == 'ffff': #empty string
-			return ('', offset + 2)
+			return (u'', offset + 2)
 		length, offset = self._decodeUint16(data, offset)
-		string = data[offset:offset+length]
+		string = data[offset:offset+length].decode('utf-8')
 		return (string, offset + length)
+
+	def _decodeSha1(self, data, offset):
+		if data[offset:offset+2].encode('hex') == 'ffff': #empty string
+			return (u'', offset + 2)
+		length, offset = self._decodeUint16(data, offset)
+		string = data[offset:offset+length].encode('hex').encode('utf-8')
+		return (string, offset + length)
+		
 
 if __name__ == '__main__':
 	import os, sys
@@ -107,4 +252,4 @@ if __name__ == '__main__':
 	print mbdb.version
 
 	for rec in mbdb:
-		print rec['domain'], rec['path']
+		print rec['domain'], rec['path'], oct(rec['mode']), rec['datahash']
