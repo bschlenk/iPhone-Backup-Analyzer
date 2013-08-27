@@ -36,7 +36,7 @@ def getstring(data, offset):
 
 def process_mbdb_file(filename):
     mbdb = {} # Map offset of info in this file => file info
-    with open(filename) as f:
+    with open(filename, 'rb') as f:
         data = f.read()
     if data[0:4] != "mbdb":
         raise MbdError("This does not look like an MBDB file")
@@ -123,12 +123,18 @@ def fileinfo_str(f, verbose=False):
 
 verbose = True
 if __name__ == '__main__':
-    mbdb = process_mbdb_file("Manifest.mbdb")
-    mbdx = process_mbdx_file("Manifest.mbdx")
+    import sys
+    try:
+        fname = sys.argv[1]
+    except IndexError:
+        fname = 'Manifest.mbdb'
+
+    mbdb = process_mbdb_file(fname)
+    #mbdx = process_mbdx_file("Manifest.mbdx")
     for offset, fileinfo in mbdb.items():
-        if offset in mbdx:
-            fileinfo['fileID'] = mbdx[offset]
-        else:
-            fileinfo['fileID'] = "<nofileID>"
-            print >> sys.stderr, "No fileID found for %s" % fileinfo_str(fileinfo)
+        #if offset in mbdx:
+            #fileinfo['fileID'] = mbdx[offset]
+        #else:
+		#fileinfo['fileID'] = "<nofileID>"
+		#print >> sys.stderr, "No fileID found for %s" % fileinfo_str(fileinfo)
         print fileinfo_str(fileinfo, verbose)
