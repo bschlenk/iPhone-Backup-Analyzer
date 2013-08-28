@@ -67,12 +67,12 @@ def OnDoubleClick(event):
 
 # MAIN FUNCTION --------------------------------------------------------------------------------
 	
-def main(cursor, backup_path):
+def main(mbdb, backup_path):
 	global filename
 	global historytree, textarea, historywindow
 	global titlefootertext, urlfootertext
 	
-	filename = os.path.join(backup_path, plugins_utils.realFileName(cursor, filename="History.plist", domaintype="HomeDomain", path="Library/Safari"))
+	filename = os.path.join(backup_path, mbdb.realFileName(filename="History.plist", domaintype="HomeDomain", path="Library/Safari"))
 	
 	if (not os.path.isfile(filename)):
 		print("Invalid file name for Safari History database: %s"%filename)

@@ -116,12 +116,12 @@ def OnClick(event):
 				
 # MAIN FUNCTION --------------------------------------------------------------------------------
 	
-def main(cursor, backup_path):
+def main(mbdb, backup_path):
 	global filename
 	global safstatetree, textarea, safstatewindow
 	global dict_nodes
 	
-	filename = os.path.join(backup_path, plugins_utils.realFileName(cursor, filename="SuspendState.plist", domaintype="HomeDomain"))
+	filename = os.path.join(backup_path, mbdb.realFileName(filename="SuspendState.plist", domaintype="HomeDomain"))
 	
 	if (not os.path.isfile(filename)):
 		print("Invalid file name for Safari state data: %s"%filename)

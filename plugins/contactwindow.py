@@ -200,12 +200,12 @@ def OnClick(event):
 
 # MAIN FUNCTION --------------------------------------------------------------------------------
 	
-def main(cursor, backup_path):
+def main(mbdb, backup_path):
 	global filename, thumbsfilename
 	global contactstree, textarea, contactswindow
 	
-	filename = os.path.join(backup_path, plugins_utils.realFileName(cursor, filename="AddressBook.sqlitedb", domaintype="HomeDomain"))
-	thumbsfilename = os.path.join(backup_path, plugins_utils.realFileName(cursor, filename="AddressBookImages.sqlitedb", domaintype="HomeDomain"))
+	filename = os.path.join(backup_path, mbdb.realFileName(filename="AddressBook.sqlitedb", domaintype="HomeDomain"))
+	thumbsfilename = os.path.join(backup_path, mbdb.realFileName(filename="AddressBookImages.sqlitedb", domaintype="HomeDomain"))
 	
 	if (not os.path.isfile(filename)):
 		print("Invalid file name for Contacts database: %s"%filename)

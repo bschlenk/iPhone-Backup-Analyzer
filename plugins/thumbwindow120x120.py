@@ -111,13 +111,13 @@ def OnClick(event):
 
 # MAIN FUNCTION --------------------------------------------------------------------------------
 
-def main(cursor, backup_path):
+def main(mbdb, backup_path):
 	global filename
 	global thumbstree, textarea, prevarea
 	global photoImagesList
 	global framelen_image, framelen_padding, thumbs_filename
 	
-	filename = os.path.join(backup_path, plugins_utils.realFileName(cursor, filename=thumbs_filename))
+	filename = os.path.join(backup_path, mbdb.realFileName(filename=thumbs_filename))
 	
 	if (not os.path.isfile(filename)):
 		import tkMessageBox
