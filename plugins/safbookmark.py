@@ -116,12 +116,12 @@ def OnClick(event):
 
 # MAIN FUNCTION --------------------------------------------------------------------------------
 	
-def main(cursor, backup_path):
+def main(mbdb, backup_path):
 	global filename
 	global bookmarkstree, textarea
 	global namelabel, urllabel, url
 	
-	filename = os.path.join(backup_path, plugins_utils.realFileName(cursor, filename="Bookmarks.db", domaintype="HomeDomain"))
+	filename = os.path.join(backup_path, mbdb.realFileName(filename="Bookmarks.db", domaintype="HomeDomain"))
 	
 	if (not os.path.isfile(filename)):
 		print("Invalid file name for Safari Bookmarks database")

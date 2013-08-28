@@ -192,12 +192,12 @@ def OnClick(event):
 		
 # MAIN FUNCTION --------------------------------------------------------------------------------
 	
-def main(cursor, backup_path):
+def main(mbdb, backup_path):
 	global filename
 	global youtubetree, textarea, youtubewindow
 	global bookmarksArray, historyArray, lastSearch, lastViewedVideo
 	
-	filename = os.path.join(backup_path, plugins_utils.realFileName(cursor, filename="com.apple.youtube.dp.plist", domaintype="HomeDomain"))
+	filename = os.path.join(backup_path, mbdb.realFileName(filename="com.apple.youtube.dp.plist", domaintype="HomeDomain"))
 	
 	if (not os.path.isfile(filename)):
 		print("Invalid file name for Contacts database: %s"%filename)

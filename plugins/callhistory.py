@@ -39,11 +39,11 @@ def autoscroll(sbar, first, last):
 
 # MAIN FUNCTION --------------------------------------------------------------------------------
 	
-def main(cursor, backup_path):
+def main(mbdb, backup_path):
 	global filename
 	global callstree, textarea
 	
-	filename = os.path.join(backup_path, plugins_utils.realFileName(cursor, filename="call_history.db", domaintype="WirelessDomain"))
+	filename = os.path.join(backup_path, mbdb.realFileName(filename="call_history.db", domaintype="WirelessDomain"))
 	
 	if (not os.path.isfile(filename)):
 		print("Invalid file name for SMS database")

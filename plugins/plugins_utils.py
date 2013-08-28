@@ -12,33 +12,6 @@
 
 import sqlite3
 
-# MAIN FUNCTION --------------------------------------------------------------------------------
-
-def realFileName(cursor, filename="", domaintype="", path=""):
-	query = "SELECT fileid FROM indice" # WHERE 1=1"
-
-	'''if (filename != ""):
-		query = query + " AND file_name = \"%s\""%filename
-	if (domaintype != ""):
-		query = query + " AND domain_type = \"%s\""%domaintype
-	if (path != ""):
-		query = query + "AND file_path = \"%s\""%path
-	'''
-
-	fields = ['file_name', 'domain_type', 'file_path']
-	where_clause = ' AND '.join('%s = "%s"' % (k, v) for k, v in zip(fields, (filename, domaintype, path)) if v)
-	if where_clause:
-		query = ' WHERE '.join([query, where_clause])
-
-	cursor.execute(query);
-	result = cursor.fetchone()
-			
-	if result:
-		return result[0]
-	else:
-		print("ERROR: could not find file")
-		return ""	
-
 # ------------------------------------------------------------------------------------------------------------------------
 
 # reads a DICT node and returns a python dictionary with key-value pairs

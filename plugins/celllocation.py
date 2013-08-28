@@ -154,11 +154,11 @@ def OnClick(event):
 
 # MAIN FUNCTION --------------------------------------------------------------------------------
 	
-def main(cursor, backup_path):
+def main(mbdb, backup_path):
 	global filename
 	global datetree, textarea, cellstree
 	
-	filename = os.path.join(backup_path, plugins_utils.realFileName(cursor, filename="consolidated.db", domaintype="RootDomain"))
+	filename = os.path.join(backup_path, mbdb.realFileName(filename="consolidated.db", domaintype="RootDomain"))
 	
 	if (not os.path.isfile(filename)):
 		print("Invalid file name for Cell Location database")

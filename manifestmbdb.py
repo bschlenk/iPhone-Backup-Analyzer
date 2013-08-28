@@ -179,19 +179,19 @@ class ManifestMBDB(object):
 
 		values = (filename, domaintype, path)
 		fields = [u'file_name', u'domain_type', u'file_path']
-		where_clause = u' AND '.join(u'%s = ?' % (k, ) for k, v in zip(fields, args) if v)
+		where_clause = u' AND '.join(u'%s = ?' % (k, ) for k, v in zip(fields, values) if v)
 		if where_clause:
 			query = u' WHERE '.join([query, where_clause])
 
-		values = [v for v in args if v]
+		values = [v for v in values if v]
 
 		cursor = self._db.cursor()
 		cursor.execute(query, values);
 		result = cursor.fetchone()
 		cursor.close()
 				
-		if (results):
-			return results[0]
+		if (result):
+			return result[0]
 		else:
 			print(u'ERROR: could not find file')
 			return ''	

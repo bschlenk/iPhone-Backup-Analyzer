@@ -135,12 +135,12 @@ def OnClick(event):
 				
 # MAIN FUNCTION --------------------------------------------------------------------------------
 	
-def main(cursor, backup_path):
+def main(mbdb, backup_path):
 	global filename
 	global netidenttree, textarea, netidentwindow
 	global dict_nodes
 	
-	filename = os.path.join(backup_path, plugins_utils.realFileName(cursor, filename="com.apple.network.identification.plist", domaintype="SystemPreferencesDomain"))
+	filename = os.path.join(backup_path, mbdb.realFileName(filename="com.apple.network.identification.plist", domaintype="SystemPreferencesDomain"))
 	
 	if (not os.path.isfile(filename)):
 		print("Invalid file name for network identification data: %s"%filename)
