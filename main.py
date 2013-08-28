@@ -754,7 +754,7 @@ if __name__ == '__main__':
 	
 	def getFunc(m_name):
 		def func():
-			getattr(sys.modules[m_name], 'main')(cursor, backup_path)
+			getattr(sys.modules[m_name], 'main')(mbdb._db.cursor(), backup_path)
 		return func
 
 	for module in os.listdir(pluginsdir):
