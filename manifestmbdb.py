@@ -11,7 +11,9 @@ class ManifestDatabase(sqlite3.Connection):
 
 	@staticmethod
 	def connect():
-		return sqlite3.connect(':memory:', factory=ManifestDatabase)
+		conn = sqlite3.connect(':memory:', factory=ManifestDatabase)
+		conn.row_factory = sqlite3.Row
+		return conn
 
 	def __init__(self, *args, **kwargs):
 		super(ManifestDatabase, self).__init__(*args, **kwargs)
@@ -80,21 +82,21 @@ class ManifestDatabase(sqlite3.Connection):
 			
 		# separates file name from file path
 		if (obj_type == u'd'):
-			filepath = rec[u'path']
+			filepath = rec['path']
 			filename = u'';
 		else:
-			[filepath, sep, filename] = rec[u'path'].rpartition(u'/')
+			[filepath, sep, filename] = rec['path'].rpartition('/')
 
-		values = (obj_type, self._modestr(rec[u'mode']), hex(rec[u'userid']), hex(rec[u'groupid']), rec[u'filelength'], 
-			rec[u'mtime'], rec[u'atime'], rec[u'ctime'], rec[u'fileid'], domaintype, domain, filepath, filename,
-			rec[u'linktarget'], rec[u'datahash'], rec[u'flag'],
+		values = (obj_type, self._modestr(rec['mode']), hex(rec['userid']), hex(rec['groupid']), rec['filelength'], 
+			rec['mtime'], rec['atime'], rec['ctime'], rec['fileid'], domaintype, domain, filepath, filename,
+			rec['linktarget'], rec['datahash'], rec['flag'],
 		)
 		
 		cursor = self.cursor()
 		cursor.execute(ManifestDatabase._insertStatement, values)
 		
 		# check if file has properties to store in the properties table
-		if (rec[u'properties']):
+		if (rec['properties']):
 
 			query = u'''
 				SELECT id FROM indice WHERE
@@ -103,12 +105,12 @@ class ManifestDatabase(sqlite3.Connection):
 				LIMIT 1
 			'''
 			 
-			cursor.execute(query, (domain, rec[u'fileid']))
+			cursor.execute(query, (domain, rec['fileid']))
 			rowid = cursor.fetchone()
 			
 			if (rowid):
 				index = rowid[0]
-				properties = rec[u'properties']
+				properties = rec['properties']
 				query = u'INSERT INTO properties(fileid, name, value) VALUES (?, ?, ?)'
 				values = [(index, p, properties[p]) for p in properties]
 				cursor.executemany(query, values);
@@ -117,6 +119,7 @@ class ManifestDatabase(sqlite3.Connection):
 		self.commit()
 
 	def _modestr(self, val):
+		"""Return the string representation of a mode octal"""
 		def mode(val):
 			if (val & 0x4): r = u'r'
 			else: r = '-'
@@ -136,8 +139,11 @@ class ManifestMBDB(object):
 	def __init__(self, fname):
 		self.fname = fname
 
-		with open(fname, 'rb') as f:
-			data = f.read()
+		try:
+			with open(fname, 'rb') as f:
+				data = f.read()
+		except IOError as e:
+			raise ManifestMBDBError(str(e))
 
 		header = data[:4]
 		if header != 'mbdb':
@@ -167,32 +173,152 @@ class ManifestMBDB(object):
 	def __getitem__(self, key):
 		return self.records[key]
 
+	def realFileName(self, filename='', domaintype='', path=''):
+		"""Queries the database for the sha1 hash of the file given the arguments"""
+		query = u'SELECT fileid FROM indice'
+
+		values = (filename, domaintype, path)
+		fields = [u'file_name', u'domain_type', u'file_path']
+		where_clause = u' AND '.join(u'%s = ?' % (k, ) for k, v in zip(fields, args) if v)
+		if where_clause:
+			query = u' WHERE '.join([query, where_clause])
+
+		values = [v for v in args if v]
+
+		cursor = self._db.cursor()
+		cursor.execute(query, values);
+		result = cursor.fetchone()
+		cursor.close()
+				
+		if (results):
+			return results[0]
+		else:
+			print(u'ERROR: could not find file')
+			return ''	
+	
+	def domainTypes(self):
+		"""Return a list of distinct domain types"""
+		cursor = self._db.cursor()
+		cursor.execute(u'SELECT DISTINCT(domain_type) FROM indice ORDER BY domain_type ASC');
+		domain_types = [x[0] for x in list(cursor)]
+		cursor.close()
+		return domain_types
+
+	def domainTypeMembers(self, domainType):
+		"""Return a list of distinct domain names of the given domain type"""
+		query = u'''
+			SELECT DISTINCT(domain)
+			FROM indice
+			WHERE domain_type = ?
+			ORDER BY domain ASC
+		'''
+		cursor = self._db.cursor()
+		cursor.execute(query, (domainType,))
+		domain_members = [x[0] for x in list(cursor)]
+		cursor.close()
+		return domain_members
+
+
+	def filePathsOfDomain(self, domainType, domainName):
+		"""Return a list of all the files under the given domain"""
+		query = u'''
+			SELECT DISTINCT(file_path)
+			FROM indice
+			WHERE domain_type = ? AND domain = ?
+			ORDER BY file_path ASC
+		'''
+		cursor = self._db.cursor()
+		cursor.execute(query, (domainType, domainName))
+		paths = [x[0] for x in list(cursor)]
+		cursor.close()
+		return paths
+
+
+	def filesInDir(self, domainType, domainName, filePath):
+		"""Return a list of file information for the files in the given category"""
+		# used to be: SELECT file_name, filelen, id, type
+		query = u'''
+			SELECT *
+			FROM indice 
+			WHERE domain_type = ? AND domain = ? AND file_path = ?
+			ORDER BY file_name ASC
+		'''
+		cursor = self._db.cursor()
+		cursor.execute(query, (domainType, domainName, filePath))
+		files = cursor.fetchall()
+		cursor.close()
+		return files
+
+
+	def fileInformation(self, item_id):
+		"""Return the file information for the file with the given id"""
+		query = u'''
+			SELECT * FROM indice 
+			WHERE id = ?
+		'''
+		cursor = self._db.cursor()
+		cursor.execute(query, (item_id,))
+		data = dict(cursor.fetchone())
+		query = u'''
+			SELECT name, value
+			FROM properties
+			WHERE fileid = ?
+		'''
+		cursor.execute(query, (item_id,))
+		properties = dict([(row['name'], row['value']) for row in cursor])
+		cursor.close()
+		data['properties'] = properties
+		return data
+
+	def fileId(self, filename, filePath):
+		"""Return the file id of the file matching the criteria, None if not found"""
+		query = u'''
+			SELECT id
+			FROM indice
+		'''
+		fields = [u'file_name', u'file_path']
+		values = [filename, filePath]
+		where_clause = u' AND '.join([u'%s = ?' % k for k, v in zip(fields, values) if v])
+		if where_clause:
+			query = u' WHERE '.join([query, where_clause])
+
+		values = [f for f in values if f]
+		cursor = self._db.cursor()
+		cursor.execute(query, values)
+		row = cursor.fetchone()
+		cursor.close()
+		if row:
+			return row[0]
+		return None
+
+
 	def _decodeRecord(self, data, offset):
+		"""Decode and return a single record from the .mbdb file"""
 		record = {}
-		record[u'domain'], offset     = self._decodeString(data, offset)
-		record[u'path'], offset       = self._decodeString(data, offset)
-		record[u'linktarget'], offset = self._decodeString(data, offset)
-		record[u'datahash'], offset   = self._decodeSha1(data, offset)
-		record[u'unknown1'], offset   = self._decodeString(data, offset)
-		record[u'mode'], offset       = self._decodeUint16(data, offset)
-		record[u'unknown2'], offset   = self._decodeUint32(data, offset)
-		record[u'unknown3'], offset   = self._decodeUint32(data, offset)
-		record[u'userid'], offset     = self._decodeUint32(data, offset)
-		record[u'groupid'], offset    = self._decodeUint32(data, offset)
-		record[u'mtime'], offset      = self._decodeUint32(data, offset)
-		record[u'atime'], offset      = self._decodeUint32(data, offset)
-		record[u'ctime'], offset      = self._decodeUint32(data, offset)
-		record[u'filelength'], offset = self._decodeUint64(data, offset)
-		record[u'flag'], offset       = self._decodeUint8(data, offset)
+		record['domain'], offset     = self._decodeString(data, offset)
+		record['path'], offset       = self._decodeString(data, offset)
+		record['linktarget'], offset = self._decodeString(data, offset)
+		record['datahash'], offset   = self._decodeSha1(data, offset)
+		record['unknown1'], offset   = self._decodeString(data, offset)
+		record['mode'], offset       = self._decodeUint16(data, offset)
+		record['unknown2'], offset   = self._decodeUint32(data, offset)
+		record['unknown3'], offset   = self._decodeUint32(data, offset)
+		record['userid'], offset     = self._decodeUint32(data, offset)
+		record['groupid'], offset    = self._decodeUint32(data, offset)
+		record['mtime'], offset      = self._decodeUint32(data, offset)
+		record['atime'], offset      = self._decodeUint32(data, offset)
+		record['ctime'], offset      = self._decodeUint32(data, offset)
+		record['filelength'], offset = self._decodeUint64(data, offset)
+		record['flag'], offset       = self._decodeUint8(data, offset)
 		numProperties, offset = self._decodeUint8(data, offset)
-		record[u'properties'] = {}
+		record['properties'] = {}
 		for x in range(numProperties):
 			prop, offset = self._decodeString(data, offset)
 			value, offset = self._decodeString(data, offset)
-			record[u'properties'][prop] = value
+			record['properties'][prop] = value
 		sha1 = hashlib.sha1()
-		sha1.update((u'%s-%s' % (record[u'domain'], record[u'path'])).encode('utf-8'))
-		record[u'fileid'] = sha1.hexdigest()	
+		sha1.update((u'%s-%s' % (record['domain'], record['path'])).encode('utf-8'))
+		record['fileid'] = sha1.hexdigest()	
 		return (record, offset)
 
 	def _decodeUint8(self, data, offset):
@@ -219,14 +345,14 @@ class ManifestMBDB(object):
 		try:
 			string = string.decode('utf-8')
 		except UnicodeDecodeError:
-			pass
+			string = string.encode('hex').encode('utf-8')
 		return (string, offset + length)
 
 	def _decodeSha1(self, data, offset):
 		if data[offset:offset+2].encode('hex') == 'ffff': #empty string
 			return (u'', offset + 2)
 		length, offset = self._decodeUint16(data, offset)
-		string = data[offset:offset+length].encode('hex')
+		string = data[offset:offset+length].encode('hex').encode('utf-8')
 		return (string, offset + length)
 		
 
@@ -258,4 +384,4 @@ if __name__ == '__main__':
 	print mbdb.version
 
 	for rec in mbdb:
-		print rec[u'domain'], rec[u'path'], oct(rec[u'mode']), rec[u'datahash']
+		print rec['domain'], rec['path'], oct(rec['mode']), rec['datahash']

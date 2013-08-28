@@ -66,15 +66,18 @@ import magic
 import mbdbdecoding
 # plistutils.py - generic functions to handle plist files
 import plistutils
+# manifestmbdb.py - handlees the decoding of the manifest.mbdb file, as well as 
+#                   the creation of a database for convienient searching
+import manifestmbdb as MBDB
 
 # GLOBALS -------------------------------------------------------------------------------------------
 
 # version
-version = u'1.5'
-creation_date = u'Feb. 2012'
+version = '1.5'
+creation_date = 'Feb. 2012'
 
 # set this path from command line
-backup_path = u'' 
+backup_path = '' 
 
 # saves references to images in textarea
 # (to keep them alive after callback end)
@@ -89,8 +92,8 @@ rowsnumber = 100
 smallmonitor = False
 
 # global font configuration
-normalglobalfont = (u'Times', 12, u'normal')
-smallglobalfont = (u'Times', 8, u'normal')
+normalglobalfont = ('Times', 12, 'normal')
+smallglobalfont = ('Times', 8, 'normal')
 globalfont=normalglobalfont
 
 # iOS version
@@ -102,11 +105,14 @@ iOSVersion = 5
 
 # FUNCTIONS -------------------------------------------------------------------------------------------
 
-def substWith(text, subst = u'-'):
+def printEncode(msg):
+	print msg.encode(sys.stdout.encoding, 'replace')
+
+def substWith(text, subst = '-'):
 	return text if text else subst
 
 def autoscroll(sbar, first, last):
-    u"""Hide and show scrollbar as needed."""
+    """Hide and show scrollbar as needed."""
     first, last = float(first), float(last)
     if first <= 0 and last >= 1:
         sbar.grid_remove()
@@ -114,13 +120,13 @@ def autoscroll(sbar, first, last):
         sbar.grid()
     sbar.set(first, last)
 	
-def md5(md5fileName, excludeLine=u'', includeLine=u''):
-	u"""Compute md5 hash of the specified file"""
+def md5(md5fileName, excludeLine='', includeLine=''):
+	"""Compute md5 hash of the specified file"""
 	m = hashlib.md5()
 	try:
-		fd = open(md5fileName,u'rb')
+		fd = open(md5fileName,'rb')
 	except IOError:
-		return u'<none>'
+		return '<none>'
 	content = fd.readlines()
 	fd.close()
 	for eachLine in content:
@@ -128,13 +134,13 @@ def md5(md5fileName, excludeLine=u'', includeLine=u''):
 			continue
 		m.update(eachLine)
 	m.update(includeLine)
-	return unicode(m.hexdigest())
+	return m.hexdigest()
 
 FILTER=''.join([(len(repr(chr(x)))==3) and chr(x) or '.' for x in range(256)])
 
 def dump(src, length=8, limit=10000):
 	N=0
-	result=u''
+	result=''
 	while src:
 		s,src = src[:length],src[length:]
 		hexa = ' '.join(['%02X' % ord(x) for x in s])
@@ -142,8 +148,8 @@ def dump(src, length=8, limit=10000):
 		result += '%04X   %-*s   %s\n' % (N, length*3, hexa, s)
 		N += length
 		if (len(result) > limit):
-			src = u'';
-			result += u'(analysis limit reached after %i bytes)' % limit
+			src = '';
+			result += '(analysis limit reached after %i bytes)' % limit
 	return result
 
 def hex2string(src, length=8):
@@ -151,7 +157,7 @@ def hex2string(src, length=8):
 	result=''
 	while src:
 		s,src = src[:length],src[length:]
-		hexa = ' '.join(["%02X"%ord(x) for x in s])
+		hexa = ' '.join(['%02X' % ord(x) for x in s])
 		s = s.translate(FILTER)
 		N += length
 		result += s
@@ -162,7 +168,7 @@ def hex2nums(src, length=8):
 	result = []
 	while src:
 		s,src = src[:length],src[length:]
-		hexa = ' '.join(["%02X"%ord(x) for x in s])
+		hexa = ' '.join(['%02X' % ord(x) for x in s])
 		s = s.translate(FILTER)
 		N += length
 		result.append(hexa)
@@ -180,11 +186,11 @@ def clearmaintext():
 	
 # scans the main tree view and returns the code of the node with a specified ID
 # (by the way, the ID is the index of the element in the index database)
-def searchIndexInTree(index, parent=""):
+def searchIndexInTree(index, parent=''):
 	#print("---- searching under node: %s"%(tree.item(parent)['text']))
 	for node in tree.get_children(parent):			
 		#print("node under exam: %s - %s"%(node,tree.item(node)['text']))
-		id = tree.set(node, "id")
+		id = tree.set(node, 'id')
 		#print("Confronto id %s con %s"%(id, index))
 		if (id):
 			if (int(id) == int(index)): 
@@ -195,66 +201,51 @@ def searchIndexInTree(index, parent=""):
 			return sottonodi	
 	return
 	
-# returns the real file name for the searched element
-def realFileName(filename='', domaintype='', path=''):
-	query = "SELECT fileid FROM indice"
-
-	fields = ['file_name', 'domain_type', 'file_path']
-	where_clause = ' AND '.join('%s = %s' % (k, v) for k, v in zip(fields, (filename, domaintype, path)) if v)
-	if where_clause:
-		query = ' WHERE '.join([query, where_clause])
-
-	cursor.execute(query);
-	results = cursor.fetchall()
-			
-	if (results):
-		return results[0][0]
-	else:
-		print('ERROR: could not find file')
-		return ''	
-	
 # Called when a button is clicked in the buttonbox (upper right) -----------------------------------------
 
 # open selected file in OS viewer
-fileNameForViewer = ""
+fileNameForViewer = ''
 def openFile(event):
 	global fileNameForViewer
 	
 	if (fileNameForViewer):
 	
-		answer = tkMessageBox.askyesno("Caution", "Are you sure you want to open the selected file with an external viewer? This could modify the evidence!", icon="warning", default="no")
+		answer = tkMessageBox.askyesno('Caution',
+			'Are you sure you want to open the selected file with an external viewer? This could modify the evidence!',
+			icon='warning', default='no'
+		)
 
 		if (answer):
-			print("Opening with viewer: %s"%fileNameForViewer)
+			print('Opening with viewer: %s' % fileNameForViewer)
 			
 			# mac os specific
 			if sys.platform.startswith('darwin'):
-				log("Opening with Mac Os \"open\" the file: %s"%(fileNameForViewer))
+				log('Opening with Mac Os "open" the file: %s' % (fileNameForViewer, ))
 				subprocess.call(['open', fileNameForViewer], shell=False)
 			
 			# linux specific
 			elif sys.platform.startswith('linux'):
-				log("Opening with Linux \"gnome-open\" the file: %s"%(fileNameForViewer))
+				log('Opening with Linux "gnome-open" the file: %s' % (fileNameForViewer,))
 				subprocess.call(['gnome-open', fileNameForViewer], shell=False)
 			
 			# windows specific
 			elif sys.platform.startswith('win'):
-				log("Opening with Windows \"start\" the file: %s"%(fileNameForViewer))
+				log('Opening with Windows "start" the file: %s' % (fileNameForViewer))
 				subprocess.call(['start', fileNameForViewer])
 			
 			# other
 			else:
-				log("This platform doesn't support this function.")
+				log('This platform doesn\'t support this function.')
 
 # search function globals
-pattern = ""
-searchindex = "1.0"
+pattern = ''
+searchindex = '1.0'
 
 def buttonBoxPress(event):		
 	
 	# SEARCH button
 	
-	if (event.widget['text'] == "Search"):
+	if (event.widget['text'] == 'Search'):
 		
 		global pattern
 		global searchindex
@@ -326,8 +317,8 @@ if __name__ == '__main__':
 	root.withdraw()
 
 	def banner():
-		print("\niPBA - iPhone backup analyzer v. %s (%s)"%(version, creation_date))
-		print("Released by <mario.piccinelli@gmail.com> under MIT licence")
+		print('\niPBA - iPhone backup analyzer v. %s (%s)' % (version, creation_date))
+		print('Released by <mario.piccinelli@gmail.com> under MIT licence')
 
 	# usage
 	def usage():
@@ -336,15 +327,15 @@ if __name__ == '__main__':
  -h              : this help
  -d <dir>        : backup dir
  -s              : adapt main UI for small monitors (such as 7')
- -4              : iOS 4 backup data (default is iOS 5)
+         iOS Version <= 4 not currently suppoted 
 ''')
 
 	# input parameters
 	try:
-		opts, args = getopt.getopt(sys.argv[1:], "hd:s4")
+		opts, args = getopt.getopt(sys.argv[1:], 'hd:s')
 	except getopt.GetoptError as err:
 		usage()
-		print("\n%s\n"%str(err))
+		print('\n%s\n' % str(err))
 		sys.exit(2)
 	
 	for o, a in opts:
@@ -360,9 +351,6 @@ if __name__ == '__main__':
 		if o in ("-s"):
 			smallmonitor = True
 			globalfont = smallglobalfont
-		
-		if o in ("-4"):
-			iOSVersion = 4
 
 	# show window to select directory
 	if (not backup_path):
@@ -371,183 +359,21 @@ if __name__ == '__main__':
 	# chech existence of backup dir
 	if (not os.path.isdir(backup_path)):
 		usage()
-		print("\nThe provided backup dir \"%s\" is not a valid folder.\n"%backup_path)
+		print('\nThe provided backup dir "%s" is not a valid folder.\n' % backup_path)
 		sys.exit(1)
 
 	# decode Manifest files
-	mbdbPath = os.path.join(backup_path, "Manifest.mbdb")
-	if (os.path.exists(mbdbPath)):
-		mbdb = mbdbdecoding.process_mbdb_file(mbdbPath)
-	else:
+	mbdbPath = os.path.join(backup_path, 'Manifest.mbdb')
+	try:
+		mbdb = MBDB.ManifestMBDB(mbdbPath)
+	except MBDB.ManifestMBDBError as e:
 		usage()
-		print("\nManifest.mbdb not found in path \"%s\". Are you sure this is a correct iOS backup dir?\n"%(backup_path))
+		print('%s - are you sure this is a correct iOS backup dir?\n' % e)
 		sys.exit(1)
 	
-	# decode mbdx file (only iOS 4)
-	if (iOSVersion == 4):
-		mbdxPath = os.path.join(backup_path, "Manifest.mbdx")
-		if (os.path.exists(mbdxPath)):
-			mbdx = mbdbdecoding.process_mbdx_file(mbdxPath)
-		else:
-			usage()
-			print("\nManifest.mbdx not found in path \"%s\". Are you sure this is a correct iOS backup dir, and are you sure this is an iOS 4 backup?\n"%(backup_path))
-			sys.exit(1)
-	
-	# prepares DB
-	# database = sqlite3.connect('MyDatabase.db') # Create a database file
-	database = sqlite3.connect(':memory:') # Create a database file in memory
-	cursor = database.cursor() # Create a cursor
-	cursor.execute('''
-		CREATE TABLE indice (
-			id INTEGER PRIMARY KEY AUTOINCREMENT,
-			type VARCHAR(1),
-			permissions VARCHAR(9),
-			userid VARCHAR(8),
-			groupid VARCHAR(8),
-			filelen INT,
-			mtime INT,
-			atime INT,
-			ctime INT,
-			fileid VARCHAR(50),
-			domain_type VARCHAR(100),
-			domain VARCHAR(100),
-			file_path VARCHAR(100),
-			file_name VARCHAR(100),
-			link_target VARCHAR(100),
-			datahash VARCHAR(100),
-			flag VARCHAR(100)
-		)
-	''')
-	
-	cursor.execute('''
-		CREATE TABLE properties (
-			id INTEGER PRIMARY KEY AUTOINCREMENT,
-			file_id INTEGER,
-			property_name VARCHAR(100),
-			property_val VARCHAR(100)
-		)
-	''')
-		
-	# count items parsed from Manifest file
-	items = 0;
-	
-	# populates database by parsing manifest file
-	for offset, fileinfo in mbdb.items():
-		
-		# iOS 4 (get file ID from mbdx file)
-		if (iOSVersion == 4):
-		
-			if offset in mbdx:
-				fileinfo['fileID'] = mbdx[offset]
-			else:
-				fileinfo['fileID'] = "<nofileID>"
-				print >> sys.stderr, "No fileID found for %s" % fileinfo_str(fileinfo)
-		
-		# iOS 5 (no MBDX file, use SHA1 of complete file name)
-		elif (iOSVersion == 5):
-			fileID = hashlib.sha1()
-			fileID.update('%s-%s' % (fileinfo['domain'], fileinfo['filename']))
-			fileinfo['fileID'] = fileID.hexdigest()	
-
-		else:
-			print >> sys.stderr, 'invalid iOSVersion [%d]' % (iOSVersion,)
-	
-		# decoding element type (symlink, file, directory)
-		if (fileinfo['mode'] & 0xE000) == 0xA000: obj_type = 'l' # symlink
-		elif (fileinfo['mode'] & 0xE000) == 0x8000: obj_type = '-' # file
-		elif (fileinfo['mode'] & 0xE000) == 0x4000: obj_type = 'd' # dir
-		
-		# separates domain type (AppDomain, HomeDomain, ...) from domain name
-		[domaintype, sep, domain] = fileinfo['domain'].partition('-');
-		
-		# separates file name from file path
-		[filepath, sep, filename] = fileinfo['filename'].rpartition('/')
-		if (type == 'd'):
-			filepath = fileinfo['filename']
-			filename = '';
-
-		# Insert record in database
-		# TODO: make this a parameterized insert. possibly wrap database into a class
-		query = '''
-			INSERT INTO indice(
-				type, 
-				permissions, 
-				userid, 
-				groupid, 
-				filelen, 
-				mtime, 
-				atime, 
-				ctime, 
-				fileid, 
-				domain_type, 
-				domain, 
-				file_path, 
-				file_name, 
-				link_target, 
-				datahash, 
-				flag
-			) VALUES( '''
-		query += "'%s'," 	% obj_type
-		query += "'%s'," 	% mbdbdecoding.modestr(fileinfo['mode']&0x0FFF)
-		query += "'%08x'," 	% fileinfo['userid']
-		query += "'%08x'," 	% fileinfo['groupid']
-		query += "%i," 		% fileinfo['filelen']
-		query += "%i," 		% fileinfo['mtime']
-		query += "%i," 		% fileinfo['atime']
-		query += "%i," 		% fileinfo['ctime']
-		query += "'%s'," 	% fileinfo['fileID']
-		query += "'%s'," 	% domaintype.replace("'", "''")
-		query += "'%s'," 	% domain.replace("'", "''")
-		query += "'%s'," 	% filepath.replace("'", "''")
-		query += "'%s'," 	% filename.replace("'", "''")
-		query += "'%s'," 	% fileinfo['linktarget']
-		query += "'%s'," 	% hex2nums(fileinfo['datahash']).replace("'", "''")
-		query += "'%s'" 	% fileinfo['flag']
-		query += ");"
-		
-		#print(query)
-
-		cursor.execute(query)
-		
-		items += 1;
-		
-		# check if file has properties to store in the properties table
-		if (fileinfo['numprops'] > 0):
-	
-			#TODO: make this a parameterized query
-			query = '''
-				SELECT id FROM indice WHERE
-				domain = '%s'
-				AND fileid = '%s'
-				LIMIT 1
-			''' % (domain.replace("'", "''"), fileinfo['fileID'])
-			 
-			cursor.execute(query);
-			id = cursor.fetchone()
-			
-			if (id):
-				index = id[0]
-				properties = fileinfo['properties']
-				#TODO: make this a parameterized query
-				for property in properties:
-					query = "INSERT INTO properties(file_id, property_name, property_val) VALUES (";
-					query += "'%i'," % index
-					query += "'%s'," % property
-					query += "'%s'" % hex2nums(properties[property]).replace("'", "''")
-					query += ");"
-					
-					cursor.execute(query);
-		
-			#print("File: %s, properties: %i"%(domain + ":" + filepath + "/" + filename, fileinfo['numprops']))
-			#print(fileinfo['properties'])
-
-	database.commit() 
-	
-	# print banner
-	
 	banner()
-	print("\nWorking directory: %s"%backup_path)
-	print("Read elements: %i" %items)
+	print("\nWorking directory: %s" % backup_path)
+	print("Read elements: %i" % len(mbdb))
 	
 	# Builds user interface ----------------------------------------------------------------------------------
 	
@@ -837,23 +663,19 @@ if __name__ == '__main__':
 	def quitMenu():
 		exit(0)
 			
-	def placesMenu(filename):
+	def placesMenu(filename, filepath=None):
 		if not filename:
 			return
 
-		query = 'SELECT id FROM indice WHERE file_name = ?'
-		cursor.execute(query, (filename,))
-		result = cursor.fetchone()
-		
-		if not result:
+		file_id = mbdb.fileId(filename, filepath)
+		if not file_id:
 			log('File %s not found.' % filename)
 			return
 		
-		id = result[0]
-		nodeFound = searchIndexInTree(id)
+		nodeFound = searchIndexInTree(file_id)
 		
 		if nodeFound is None:
-			log('Node not found in tree while searching for file %s (id %s).' % (filename, id))
+			log(u'Node not found in tree while searching for file %s (id %s).' % (filename, file_id))
 			return
 			
 		tree.see(nodeFound)
@@ -913,7 +735,7 @@ if __name__ == '__main__':
 	)
 	placesmenu.add_command(
 		label="Safari History", 
-		command=lambda:placesMenu(filename="History.plist")
+		command=lambda:placesMenu(filename="History.plist", filepath='Library/Safari')
 	)
 
 	placesmenu.add_separator()
@@ -991,37 +813,23 @@ if __name__ == '__main__':
 	tree.insert(base_files_index, 'end', text="Info.plist", values=("X", "", 0), tag='base')
 	tree.insert(base_files_index, 'end', text="Status.plist", values=("X", "", 0), tag='base')
 	
-	cursor.execute("SELECT DISTINCT(domain_type) FROM indice");
-	domain_types = [x[0] for x in list(cursor)]
+	domain_types = mbdb.domainTypes()
 	
 	print("\nBuilding UI..")
 	
+	# building the file hierarchy
 	for domain_type in domain_types:
 		domain_type_index = tree.insert('', 'end', text=domain_type, tag='base')
 		print(u'Listing elements for domain family: %s' % domain_type)
 		
-		query = u'''
-			SELECT DISTINCT(domain)
-			FROM indice
-			WHERE domain_type = ?
-			ORDER BY domain
-		'''
-		cursor.execute(query, (domain_type,))
-		domain_names = [x[0] for x in list(cursor)]
+		domain_names = mbdb.domainTypeMembers(domain_type)
 		
 		for domain_name in domain_names:
 			domain_name_index = domain_type_index
 			if domain_name:
 				domain_name_index = tree.insert(domain_type_index, 'end', text=domain_name, tag='base')
 			
-			query = u'''
-				SELECT DISTINCT(file_path)
-				FROM indice
-				WHERE domain_type = ? AND domain = ?
-				ORDER BY file_path
-			'''
-			cursor.execute(query, (domain_type, domain_name))
-			paths = [x[0] for x in list(cursor)]
+			paths = mbdb.filePathsOfDomain(domain_type, domain_name)
 			
 			file_path_map = {} # store name, treeindex pairs
 
@@ -1031,23 +839,18 @@ if __name__ == '__main__':
 					if path:
 						path_index = tree.insert(domain_name_index, 'end', text=path, tag='base')
 				
-				query = u'''
-					SELECT file_name, filelen, id, type
-					FROM indice 
-					WHERE domain_type = ? AND domain = ? AND file_path = ?
-					ORDER BY file_name
-				'''
-				cursor.execute(query, (domain_type, domain_name, path))
-				files = cursor.fetchall()
+				files = mbdb.filesInDir(domain_type, domain_name, path)
 				
 				for f in files:
-					file_name = f[0]
-					if (f[1]) < 1024:
-						file_dim = unicode(f[1]) + u' b'
+					file_name = f['file_name']
+					file_len  = f['filelen']
+					file_id   = f['id']
+					file_type = f['type']
+
+					if (file_len) < 1024:
+						file_dim = unicode(file_len) + u' B'
 					else:
-						file_dim = str(f[1] / 1024) + u' kb'
-					file_id = int(f[2])
-					file_type = f[3]
+						file_dim = unicode(file_len / 1024) + u' KiB'
 
 					if file_name:
 						file_index = tree.insert(path_index, 'end', text=file_name, values=(file_type, file_dim, file_id), tag='base')
@@ -1059,7 +862,7 @@ if __name__ == '__main__':
 			
 	print(u'Construction complete.\n')
 	
-	# Now that the UI has been build, we cancel the "withdraw" operation done before
+	# Now that the UI has been built, we cancel the "withdraw" operation done before
 	# and show the main window
 	root.deiconify()
 
@@ -1128,7 +931,6 @@ if __name__ == '__main__':
 							
 						for i, col in enumerate(seltable_record):	
 						
-							#import unicodedata
 							try:
 								value = str(col)
 							except:
@@ -1236,26 +1038,20 @@ if __name__ == '__main__':
 
 		maintext(u'Selected: %s (id %s)' % (item_text, item_id))
 		
-		query = u'''
-			SELECT * FROM indice 
-			WHERE id = ?
-		'''
-		cursor.execute(query, (item_id,))
-		data = cursor.fetchone()
-		
+		data = mbdb.fileInformation(item_id)
 		if not data:
 			return
 		
-		item_permissions = unicode(data[2])
-		item_userid      = unicode(data[3])
-		item_groupid     = unicode(data[4])
-		item_mtime       = unicode(datetime.fromtimestamp(int(data[6])))
-		item_atime       = unicode(datetime.fromtimestamp(int(data[7])))
-		item_ctime       = unicode(datetime.fromtimestamp(int(data[8])))
-		item_filecode    = unicode(data[9])
-		item_link_target = unicode(data[14])
-		item_datahash    = unicode(data[15])
-		item_flag        = unicode(data[16])
+		item_permissions = data['permissions']
+		item_userid      = data['userid']
+		item_groupid     = data['groupid']
+		item_mtime       = unicode(datetime.fromtimestamp(int(data['mtime'])))
+		item_atime       = unicode(datetime.fromtimestamp(int(data['atime'])))
+		item_ctime       = unicode(datetime.fromtimestamp(int(data['ctime'])))
+		item_fileid      = data['fileid']
+		item_link_target = data['link_target']
+		item_datahash    = data['datahash']
+		item_flag        = data['flag']
 		
 		maintext(u'\n\nElement type: ' + item_type)
 		maintext(u'\nPermissions: ' + item_permissions)
@@ -1266,20 +1062,12 @@ if __name__ == '__main__':
 		maintext(u'\nLast modify time: ' + item_mtime)
 		maintext(u'\nLast access Time: ' + item_atime)
 		maintext(u'\nCreation time: ' + item_ctime)
-		maintext(u'\nFile Key (obfuscated file name): ' + item_filecode)
+		maintext(u'\nFile Key (obfuscated file name): ' + item_fileid)
 		maintext(u'\nFlag: ' + item_flag)
 
-		# file properties (from properties table, which is data from mbdb file)
-		query = u'''
-			SELECT property_name, property_val
-			FROM properties
-			WHERE file_id = ?
-		'''
-		cursor.execute(query, (item_id,))
-		for data in cursor:
-			maintext(u'\n\nElement properties (from mdbd file):')
-			for element in data:
-				maintext(u'\n%s: %s' % (element[0], element[1]))
+		maintext(u'\n\nElement properties (from mdbd file):')
+		for name, value in data['properties'].items():
+			maintext(u'\n%s: %s' % (name, value))
 		
 		# treat sym links
 		if (item_type == u'l'):
@@ -1295,12 +1083,12 @@ if __name__ == '__main__':
 			return
 		
 		# last modification date of the file in the backup directory
-		last_mod_time = time.strftime(u'%m/%d/%Y %I:%M:%S %p',time.localtime(os.path.getmtime(os.path.join(backup_path, item_filecode))))
+		last_mod_time = time.strftime(u'%m/%d/%Y %I:%M:%S %p',time.localtime(os.path.getmtime(os.path.join(backup_path, item_fileid))))
 		maintext(u'\n\nLast modification time (in backup dir): %s' % last_mod_time)
 		
 		maintext(u'\n\nAnalize file: ')
 		
-		item_realpath = os.path.join(backup_path, item_filecode)
+		item_realpath = os.path.join(backup_path, item_fileid)
 		fileNameForViewer = item_realpath
 		
 		log(u'Opening file %s (%s)' % (item_realpath, item_text))
