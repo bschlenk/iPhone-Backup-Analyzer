@@ -22,22 +22,22 @@ class ManifestDatabase(sqlite3.Connection):
 		cursor.execute(u'''
 			CREATE TABLE indice (
 				id INTEGER PRIMARY KEY AUTOINCREMENT,
-				type TEXT,
-				permissions TEXT,
-				userid TEXT,
-				groupid TEXT,
+				type VARCHAR(1),
+				permissions VARCHAR(9),
+				userid VARCHAR(8),
+				groupid VARCHAR(8),
 				filelen INT,
 				mtime INT,
 				atime INT,
 				ctime INT,
-				fileid TEXT,
-				domain_type TEXT,
-				domain TEXT,
-				file_path TEXT,
-				file_name TEXT,
-				link_target TEXT,
-				datahash TEXT,
-				flag TEXT
+				fileid VARCHAR(50),
+				domain_type VARCHAR(100),
+				domain VARCHAR(100),
+				file_path VARCHAR(100),
+				file_name VARCHAR(100),
+				link_target VARCHAR(100),
+				datahash VARCHAR(100),
+				flag VARCHAR(100)
 			)
 		''')
 		
@@ -45,8 +45,8 @@ class ManifestDatabase(sqlite3.Connection):
 			CREATE TABLE properties (
 				id INTEGER PRIMARY KEY AUTOINCREMENT,
 				fileid INTEGER,
-				name TEXT,
-				value TEXT
+				name VARCHAR(100),
+				value VARCHAR(100)
 			)
 		''')
 		
