@@ -327,17 +327,19 @@ if __name__ == '__main__':
  -h              : this help
  -d <dir>        : backup dir
  -s              : adapt main UI for small monitors (such as 7')
+ -q <file>       : the name of the database file. if not specified, :memory: is used
          iOS Version <= 4 not currently suppoted 
 ''')
 
 	# input parameters
 	try:
-		opts, args = getopt.getopt(sys.argv[1:], 'hd:s')
+		opts, args = getopt.getopt(sys.argv[1:], 'hd:sq:')
 	except getopt.GetoptError as err:
 		usage()
 		print('\n%s\n' % str(err))
 		sys.exit(2)
 	
+	database_file = ':memory:'
 	for o, a in opts:
 		if o in ("-h"):
 			usage()
@@ -352,6 +354,10 @@ if __name__ == '__main__':
 			smallmonitor = True
 			globalfont = smallglobalfont
 
+		if o in ('-q'):
+			database_file = a
+		
+
 	# show window to select directory
 	if (not backup_path):
 		backup_path = tkFileDialog.askdirectory(mustexist=True, title="Select backup path")
@@ -365,7 +371,7 @@ if __name__ == '__main__':
 	# decode Manifest files
 	mbdbPath = os.path.join(backup_path, 'Manifest.mbdb')
 	try:
-		mbdb = MBDB.ManifestMBDB(mbdbPath)
+		mbdb = MBDB.ManifestMBDB(mbdbPath, db_file=database_file)
 	except MBDB.ManifestMBDBError as e:
 		usage()
 		print('%s - are you sure this is a correct iOS backup dir?\n' % e)
@@ -814,7 +820,7 @@ if __name__ == '__main__':
 	tree.insert(base_files_index, 'end', text="Status.plist", values=("X", "", 0), tag='base')
 	
 	domain_types = mbdb.domainTypes()
-	
+
 	print("\nBuilding UI..")
 	
 	# building the file hierarchy

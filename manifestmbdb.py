@@ -10,8 +10,8 @@ class ManifestDatabaseError(Exception):
 class ManifestDatabase(sqlite3.Connection):
 
 	@staticmethod
-	def connect():
-		conn = sqlite3.connect(':memory:', factory=ManifestDatabase)
+	def connect(db_file=':memory:'):
+		conn = sqlite3.connect(db_file, factory=ManifestDatabase)
 		conn.row_factory = sqlite3.Row
 		return conn
 
@@ -71,33 +71,35 @@ class ManifestDatabase(sqlite3.Connection):
 			flag
 		) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'''
 
-	def insertRecord(self, rec):
+	def insertRecord(self, rec, commit=True):
 		# decoding element type (symlink, file, directory)
 		if (rec[u'mode']   & 0xE000) == 0xA000: obj_type = u'l' # symlink
 		elif (rec[u'mode'] & 0xE000) == 0x8000: obj_type = u'-' # file
 		elif (rec[u'mode'] & 0xE000) == 0x4000: obj_type = u'd' # dir
-			
+
 		# separates domain type (AppDomain, HomeDomain, ...) from domain name
 		[domaintype, sep, domain] = rec[u'domain'].partition(u'-');
-			
+
 		# separates file name from file path
+		[filepath, sep, filename] = rec['path'].rpartition(u'/')
+
+		# TODO: why does this work??? Old code had typo here and made things work
+		'''
 		if (obj_type == u'd'):
 			filepath = rec['path']
 			filename = u'';
-		else:
-			[filepath, sep, filename] = rec['path'].rpartition('/')
+		'''
 
-		values = (obj_type, self._modestr(rec['mode']), hex(rec['userid']), hex(rec['groupid']), rec['filelength'], 
+		values = (obj_type, self._modestr(rec['mode']), '%08x' % (rec['userid']), '%08x' % (rec['groupid']), rec['filelength'], 
 			rec['mtime'], rec['atime'], rec['ctime'], rec['fileid'], domaintype, domain, filepath, filename,
 			rec['linktarget'], rec['datahash'], rec['flag'],
 		)
-		
+
 		cursor = self.cursor()
 		cursor.execute(ManifestDatabase._insertStatement, values)
 		
 		# check if file has properties to store in the properties table
 		if (rec['properties']):
-
 			query = u'''
 				SELECT id FROM indice WHERE
 				domain = ?
@@ -116,18 +118,17 @@ class ManifestDatabase(sqlite3.Connection):
 				cursor.executemany(query, values);
 
 		cursor.close()
-		self.commit()
+		if commit:
+			self.commit()
 
 	def _modestr(self, val):
 		"""Return the string representation of a mode octal"""
 		def mode(val):
-			if (val & 0x4): r = u'r'
-			else: r = '-'
-			if (val & 0x2): w = u'w'
-			else: w = '-'
-			if (val & 0x1): x = u'x'
-			else: x = u'-'
+			r = u'r' if (val & 0x4) else u'-'
+			w = u'w' if (val & 0x2) else u'-'
+			x = u'x' if (val & 0x1) else u'-'
 			return r+w+x
+
 		val = val & 0x0FFF
 		return mode(val>>6) + mode((val>>3)) + mode(val)
 		
@@ -136,7 +137,7 @@ class ManifestMBDBError(Exception):
 	pass
 
 class ManifestMBDB(object):
-	def __init__(self, fname):
+	def __init__(self, fname, db_file=None, create_database=True):
 		self.fname = fname
 
 		try:
@@ -150,7 +151,13 @@ class ManifestMBDB(object):
 			raise ManifestMBDBError(u'"%s" is not a valid mbdb file' % fname)
 		self.version = u'mbdb %s' % repr((ord(data[4]), ord(data[5])))
 
-		self._db = ManifestDatabase.connect()
+		if create_database:
+			if db_file:
+				self._db = ManifestDatabase.connect(db_file)
+			else:
+				self._db = ManifestDatabase.connect()
+		else:
+			self._db = None
 
 		offset = 6
 		dataLength = len(data)
@@ -158,7 +165,11 @@ class ManifestMBDB(object):
 		while offset < dataLength:
 			record, offset = self._decodeRecord(data, offset)
 			self.records.append(record)
-			self._db.insertRecord(record)
+			if create_database:
+				self._db.insertRecord(record, commit=False)
+
+		if create_database:
+			self._db.commit()
 
 	
 	def __list__(self):
@@ -361,27 +372,30 @@ if __name__ == '__main__':
 	backup_folder = os.path.join(os.path.expanduser(u'~'), u'Library/Application Support/MobileSync/Backup/')
 	backups = sorted(os.listdir(backup_folder), key=lambda x: os.path.getmtime(os.path.join(backup_folder, x)))
 
-	for i, f in enumerate(backups):
-		print u'%d: %s' % (i, f)
-	choice = raw_input(u'select backup: ')
-
-	if choice:
-		try:
-			choice = int(choice)
-		except ValueError:
-			print u'choice must be a number'
-			sys.exit(1)
-		
-		try:
-			backup = backups[choice]
-		except IndexError:
-			print u'invalid choice'
-			sys.exit(1)
-	else:
+	if len(sys.argv) == 2 and sys.argv[1] == '-f':
 		backup = backups[-1]
+	else:
+		for i, f in enumerate(backups):
+			print u'%d: %s' % (i, f)
+		choice = raw_input(u'select backup: ')
 
-	mbdb = ManifestMBDB(os.path.join(backup_folder, backup, u'Manifest.mbdb'))
+		if choice:
+			try:
+				choice = int(choice)
+			except ValueError:
+				print u'choice must be a number'
+				sys.exit(1)
+			
+			try:
+				backup = backups[choice]
+			except IndexError:
+				print u'invalid choice'
+				sys.exit(1)
+		else:
+			backup = backups[-1]
+
+	mbdb = ManifestMBDB(os.path.join(backup_folder, backup, u'Manifest.mbdb'), create_database=False)
 	print mbdb.version
 
-	for rec in mbdb:
-		print rec['domain'], rec['path'], oct(rec['mode']), rec['datahash']
+	for rec in sorted(mbdb, key = lambda x: x['domain'] + x['path']):
+		print rec['domain'], rec['path'], rec['linktarget'], rec['userid'], rec['groupid'], oct(rec['mode']), rec['datahash'], len(rec['properties'])

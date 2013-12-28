@@ -121,6 +121,8 @@ def fileinfo_str(f, verbose=False):
         info = info + ' ' + name + '=' + repr(value)
     return info
 
+
+'''
 verbose = True
 if __name__ == '__main__':
     import sys
@@ -138,3 +140,35 @@ if __name__ == '__main__':
 		#fileinfo['fileID'] = "<nofileID>"
 		#print >> sys.stderr, "No fileID found for %s" % fileinfo_str(fileinfo)
         print fileinfo_str(fileinfo, verbose)
+'''
+
+if __name__ == '__main__':
+	import os, sys
+	backup_folder = os.path.join(os.path.expanduser(u'~'), u'Library/Application Support/MobileSync/Backup/')
+	backups = sorted(os.listdir(backup_folder), key=lambda x: os.path.getmtime(os.path.join(backup_folder, x)))
+
+	if len(sys.argv) == 2 and sys.argv[1] == '-f':
+		backup = backups[-1]
+	else:
+		for i, f in enumerate(backups):
+			print u'%d: %s' % (i, f)
+		choice = raw_input(u'select backup: ')
+
+		if choice:
+			try:
+				choice = int(choice)
+			except ValueError:
+				print u'choice must be a number'
+				sys.exit(1)
+			
+			try:
+				backup = backups[choice]
+			except IndexError:
+				print u'invalid choice'
+				sys.exit(1)
+		else:
+			backup = backups[-1]
+
+	mbdb = process_mbdb_file(os.path.join(backup_folder, backup, u'Manifest.mbdb'))
+	for fileinfo in sorted(mbdb.values(), key=lambda x: x['domain'] + x['filename']):
+		print fileinfo['domain'], fileinfo['filename'], fileinfo['linktarget'], fileinfo['userid'], fileinfo['groupid'], oct(fileinfo['mode']), fileinfo['datahash'].encode('hex'), len(fileinfo['properties'])
